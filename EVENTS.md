@@ -89,8 +89,17 @@ Emitted by `pause()` / `unpause()`. Topics: `("pause",)`.
 | `by` | `Address` | The admin address that made the call. |
 | `paused` | `bool` | `true` on `pause()`, `false` on `unpause()`. |
 
+### `admin_prop` — `AdminTransferProposed`
+Emitted by `propose_admin()`, step 1 of the two-step admin transfer (see
+`docs/adr/0002-two-step-admin-transfer.md`). Topics: `("admin_prop",)`.
+
+| Field | Type | Notes |
+|---|---|---|
+| `old_admin` | `Address` | Current admin at the time of the proposal. |
+| `proposed_admin` | `Address` | Not yet active — only takes effect once this address calls `accept_admin()`. |
+
 ### `admin_upd` — `AdminUpdated`
-Emitted by `set_admin()`. Topics: `("admin_upd",)`.
+Emitted by `accept_admin()`, step 2 of the two-step admin transfer. Topics: `("admin_upd",)`.
 
 | Field | Type | Notes |
 |---|---|---|

@@ -43,6 +43,23 @@ pub fn set_admin(env: &Env, admin: &Address) {
     env.storage().instance().set(&StorageKey::Admin, admin);
 }
 
+pub fn get_pending_admin(env: &Env) -> Result<Address, Error> {
+    env.storage()
+        .instance()
+        .get(&StorageKey::PendingAdmin)
+        .ok_or(Error::NoPendingAdmin)
+}
+
+pub fn set_pending_admin(env: &Env, pending_admin: &Address) {
+    env.storage()
+        .instance()
+        .set(&StorageKey::PendingAdmin, pending_admin);
+}
+
+pub fn clear_pending_admin(env: &Env) {
+    env.storage().instance().remove(&StorageKey::PendingAdmin);
+}
+
 pub fn get_relay_signer(env: &Env) -> Result<Address, Error> {
     env.storage()
         .instance()

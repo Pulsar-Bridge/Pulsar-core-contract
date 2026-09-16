@@ -64,6 +64,12 @@ pub struct PauseStateChanged {
     pub paused: bool,
 }
 
+#[contractevent(topics = ["admin_prop"])]
+pub struct AdminTransferProposed {
+    pub old_admin: Address,
+    pub proposed_admin: Address,
+}
+
 #[contractevent(topics = ["admin_upd"])]
 pub struct AdminUpdated {
     pub old_admin: Address,
@@ -152,6 +158,14 @@ pub fn pause_state_changed(env: &Env, by: &Address, paused: bool) {
     PauseStateChanged {
         by: by.clone(),
         paused,
+    }
+    .publish(env);
+}
+
+pub fn admin_transfer_proposed(env: &Env, old_admin: &Address, proposed_admin: &Address) {
+    AdminTransferProposed {
+        old_admin: old_admin.clone(),
+        proposed_admin: proposed_admin.clone(),
     }
     .publish(env);
 }

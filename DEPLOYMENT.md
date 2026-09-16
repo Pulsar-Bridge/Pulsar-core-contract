@@ -34,8 +34,8 @@ the real signing workflow rather than skipping it.
    `stellar account ...` or a block explorer) before using it as the
    `admin` argument to `initialize()` — don't just trust that it was set up
    correctly.
-4. Re-run this verification any time `set_admin()` rotates the admin to a
-   new account.
+4. Re-run this verification any time `propose_admin()` / `accept_admin()`
+   rotates the admin to a new account.
 
 ## Build
 
@@ -64,11 +64,12 @@ stellar contract invoke \
 
 `initialize()` is one-time — a second call fails with
 `Error::AlreadyInitialized`. There is no "re-initialize" path; a mistaken
-`admin`/`relay_signer` argument must be corrected via `set_admin()` /
-`set_relay_signer()` after the fact (which themselves require the
-already-set admin's auth), or by deploying a fresh contract instance if the
-mistake is in the admin account itself and no valid admin auth is available
-to correct it.
+`admin`/`relay_signer` argument must be corrected via
+`propose_admin()`/`accept_admin()` (a two-step handshake — see
+`docs/adr/0002-two-step-admin-transfer.md`) or `set_relay_signer()` after
+the fact (which themselves require the already-set admin's auth), or by
+deploying a fresh contract instance if the mistake is in the admin account
+itself and no valid admin auth is available to correct it.
 
 ## Upgrade
 

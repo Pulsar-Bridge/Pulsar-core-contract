@@ -14,4 +14,5 @@ pub enum Error {
     TransactionAlreadyExists = 8,
     InvalidStateTransition = 9,
     SchemaVersionMismatch = 10,
+    NoPendingAdmin = 11,
 }

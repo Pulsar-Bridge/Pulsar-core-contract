@@ -161,6 +161,12 @@ impl PulsarCoreContract {
         storage::get_admin(&env)
     }
 
+    /// Returns the address proposed via `propose_admin`, if a transfer is
+    /// currently pending. Errors with `NoPendingAdmin` otherwise.
+    pub fn get_pending_admin(env: Env) -> Result<Address, Error> {
+        storage::get_pending_admin(&env)
+    }
+
     pub fn get_relay_signer(env: Env) -> Result<Address, Error> {
         storage::get_relay_signer(&env)
     }
@@ -183,8 +189,12 @@ impl PulsarCoreContract {
         admin::unpause(&env)
     }
 
-    pub fn set_admin(env: Env, new_admin: Address) -> Result<(), Error> {
-        admin::set_admin(&env, new_admin)
+    pub fn propose_admin(env: Env, new_admin: Address) -> Result<(), Error> {
+        admin::propose_admin(&env, new_admin)
+    }
+
+    pub fn accept_admin(env: Env) -> Result<(), Error> {
+        admin::accept_admin(&env)
     }
 
     pub fn set_relay_signer(env: Env, new_relay_signer: Address) -> Result<(), Error> {

@@ -4,7 +4,7 @@ Soroban smart contract powering Pulsar Bridge — the on-chain source of truth f
 ## Status
 
 All entry points below are implemented, tested, and pass `make check`
-(fmt, clippy `-D warnings`, the 25-test suite, and a `wasm32v1-none`
+(fmt, clippy `-D warnings`, the 28-test suite, and a `wasm32v1-none`
 release build). Not yet independently audited — see `THREAT_MODEL.md` for
 open findings.
 
@@ -16,13 +16,13 @@ open findings.
 | `register_callback` | relay signer | done |
 | `fail_transaction` | relay signer | done |
 | `refund_transaction` | relay signer | done |
-| `get_transaction` / `get_admin` / `get_relay_signer` / `is_paused` / `schema_version` | public read-only | done |
+| `get_transaction` / `get_admin` / `get_pending_admin` / `get_relay_signer` / `is_paused` / `schema_version` | public read-only | done |
 | `pause` / `unpause` | admin | done |
-| `set_admin` | admin | done |
+| `propose_admin` / `accept_admin` | admin (propose) / proposed admin (accept) | done |
 | `set_relay_signer` | admin | done |
 | `upgrade` | admin | done |
 
-10 events (`EVENTS.md`), schema version 1.
+11 events (`EVENTS.md`), schema version 1.
 
 ## Ecosystem
 

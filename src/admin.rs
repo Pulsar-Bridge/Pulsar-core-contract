@@ -35,12 +35,34 @@ pub fn unpause(env: &Env) -> Result<(), Error> {
     Ok(())
 }
 
-/// Rotates the admin address. `new_admin` must itself be a multisig/DAO
-/// account per DECISIONS.md — this contract has no way to enforce that
-/// on-chain, so it is an operational requirement on whoever calls this.
-pub fn set_admin(env: &Env, new_admin: Address) -> Result<(), Error> {
+/// Step 1 of 2 for rotating the admin address. Only the current admin can
+/// propose; nothing changes until the proposed address itself calls
+/// `accept_admin`. This two-step handshake exists so a typo'd or
+/// unreachable `new_admin` can't accidentally brick admin control the way a
+/// single-step rotation could — see
+/// `docs/adr/0002-two-step-admin-transfer.md`. `new_admin` must itself be a
+/// multisig/DAO account per DECISIONS.md — this contract has no way to
+/// enforce that on-chain, so it is an operational requirement on whoever
+/// calls this.
+pub fn propose_admin(env: &Env, new_admin: Address) -> Result<(), Error> {
     let old_admin = require_admin(env)?;
+    storage::set_pending_admin(env, &new_admin);
+    storage::extend_instance_ttl(env);
+    events::admin_transfer_proposed(env, &old_admin, &new_admin);
+    Ok(())
+}
+
+/// Step 2 of 2: the proposed admin confirms the transfer by calling this
+/// itself, proving it controls `new_admin` before the rotation takes
+/// effect. Fails with `NoPendingAdmin` if `propose_admin` hasn't been called
+/// (or was already consumed by a prior `accept_admin`).
+pub fn accept_admin(env: &Env) -> Result<(), Error> {
+    let old_admin = storage::get_admin(env)?;
+    let new_admin = storage::get_pending_admin(env)?;
+    new_admin.require_auth();
+
     storage::set_admin(env, &new_admin);
+    storage::clear_pending_admin(env);
     storage::extend_instance_ttl(env);
     events::admin_updated(env, &old_admin, &new_admin);
     Ok(())

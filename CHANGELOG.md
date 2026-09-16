@@ -14,12 +14,13 @@ event-schema change. Any entry there should correspond to a version note in
   `confirm_transaction` -> `register_callback`, with `fail_transaction` /
   `refund_transaction` as alternate terminal paths from `Pending` or
   `Confirmed`).
-- Admin entry points: `pause`/`unpause`, `set_admin`, `set_relay_signer`,
-  `upgrade` (schema-version-guarded WASM hot-swap).
-- 25-test suite covering happy paths, auth failures, invalid input,
-  idempotency, state-machine guards, pause/upgrade, an EVENTS.md-conformance
-  check, and the SEP-23 strkey validator against `stellar-strkey`'s own test
-  vectors.
+- Admin entry points: `pause`/`unpause`, `propose_admin`/`accept_admin`
+  (two-step admin transfer), `set_relay_signer`, `upgrade`
+  (schema-version-guarded WASM hot-swap).
+- 28-test suite covering happy paths, auth failures, invalid input,
+  idempotency, state-machine guards, pause/upgrade, the two-step admin
+  transfer, an EVENTS.md-conformance check, and the SEP-23 strkey validator
+  against `stellar-strkey`'s own test vectors.
 - `EVENTS.md`, `DECISIONS.md`, `THREAT_MODEL.md`, `DEPLOYMENT.md`, and
   `docs/adr/0001-relay-signer-trust-model.md`.
 - `Makefile` with a `check` target (`fmt` -> `wasm build` -> `clippy` ->
@@ -27,6 +28,15 @@ event-schema change. Any entry there should correspond to a version note in
 - `.github/workflows/ci.yml` running `make check` on every push and pull
   request — `CLAUDE.md` and `CONTRIBUTING.md` both described this as the bar
   "CI enforces," but no CI was actually configured until now.
+
+### Changed
+- Replaced the single-step `set_admin(new_admin)` with a two-step
+  `propose_admin(new_admin)` / `accept_admin()` handshake: the current admin
+  proposes, and the rotation only takes effect once the proposed address
+  itself calls `accept_admin()`. A typo'd or unreachable `new_admin` under
+  the old single-step call would have permanently locked out admin control
+  with no recovery path; the new address proving it can sign before the
+  swap closes that gap. See `docs/adr/0002-two-step-admin-transfer.md`.
 
 ### Fixed
 - `rust-toolchain.toml` targeted `wasm32-unknown-unknown`, which current
@@ -61,7 +71,9 @@ event-schema change. Any entry there should correspond to a version note in
   that nothing else in the suite would.
 
 ### Event schema
-- `EVENTS.md` schema version: **1**. Ten events defined: `init`, `tx_reg`,
-  `tx_conf`, `tx_comp`, `tx_fail`, `tx_refund`, `pause`, `admin_upd`,
-  `relay_upd`, `upgrade`. This is the first published version — no
-  subscribers yet, so no advance-notice obligation applied to this release.
+- `EVENTS.md` schema version: **1**. Eleven events defined: `init`,
+  `tx_reg`, `tx_conf`, `tx_comp`, `tx_fail`, `tx_refund`, `pause`,
+  `admin_prop`, `admin_upd`, `relay_upd`, `upgrade`. `admin_prop` was added
+  alongside the two-step admin transfer above. This is still the first
+  published version — no subscribers yet, so no advance-notice obligation
+  applied to this release.

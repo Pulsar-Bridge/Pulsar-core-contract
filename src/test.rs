@@ -359,11 +359,51 @@ fn test_pause_requires_admin_auth() {
 }
 
 #[test]
-fn test_set_admin_rotates_admin() {
+fn test_propose_and_accept_admin_transfer() {
     let h = setup();
     let new_admin = Address::generate(&h.env);
-    h.client.set_admin(&new_admin);
+
+    h.client.propose_admin(&new_admin);
+    assert_eq!(h.client.get_pending_admin(), new_admin);
+    // Not yet rotated: proposing alone must not change the active admin.
+    assert_eq!(h.client.get_admin(), h.admin);
+
+    h.client.accept_admin();
     assert_eq!(h.client.get_admin(), new_admin);
+    // Pending slot is cleared once consumed.
+    let res = h.client.try_get_pending_admin();
+    assert_eq!(res, Err(Ok(Error::NoPendingAdmin)));
+}
+
+#[test]
+fn test_propose_admin_requires_admin_auth() {
+    let h = setup();
+    let new_admin = Address::generate(&h.env);
+    h.env.set_auths(&[]);
+    let res = h.client.try_propose_admin(&new_admin);
+    assert!(res.is_err());
+}
+
+#[test]
+fn test_accept_admin_requires_proposed_admin_auth() {
+    // accept_admin must be authorized by the *proposed* admin, not the
+    // current one — otherwise the current admin could complete the
+    // handshake unilaterally, defeating the point of a two-step transfer.
+    let h = setup();
+    let new_admin = Address::generate(&h.env);
+    h.client.propose_admin(&new_admin);
+
+    h.env.set_auths(&[]);
+    let res = h.client.try_accept_admin();
+    assert!(res.is_err());
+    assert_eq!(h.client.get_admin(), h.admin);
+}
+
+#[test]
+fn test_accept_admin_fails_without_pending_admin() {
+    let h = setup();
+    let res = h.client.try_accept_admin();
+    assert_eq!(res, Err(Ok(Error::NoPendingAdmin)));
 }
 
 #[test]

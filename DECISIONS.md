@@ -8,8 +8,9 @@ index; `docs/adr/` is where the "why" lives for anything non-obvious.
 ## Admin key must be multisig or DAO-held
 
 `initialize()`'s `admin` parameter, and every subsequent `admin` produced by
-`set_admin()`, **must** be a multisig (≥3-of-5 threshold) or DAO-controlled
-Stellar account. Never a single signer — not even on testnet.
+`accept_admin()` (see the two-step transfer entry below), **must** be a
+multisig (≥3-of-5 threshold) or DAO-controlled Stellar account. Never a
+single signer — not even on testnet.
 
 **Why:** the admin address can call `upgrade()`, which replaces the
 contract's WASM outright. A compromised single-signer admin key doesn't just
@@ -18,14 +19,37 @@ arbitrary code with full access to every stored `Transaction` and to the
 `relay_signer` role. The contract has no on-chain way to enforce that an
 `Address` is actually a multisig/DAO account (Soroban doesn't expose signer
 thresholds to contract code), so this is an operational requirement on
-whoever calls `initialize()` and `set_admin()`, not something `require_auth()`
-can verify for you. See `docs/adr/0001-relay-signer-trust-model.md` for how
+whoever calls `initialize()` and `propose_admin()`/`accept_admin()`, not
+something `require_auth()` can verify for you. See
+`docs/adr/0001-relay-signer-trust-model.md` for how
 this interacts with the relay signer's (deliberately weaker) trust model,
 and `DEPLOYMENT.md` for what the key ceremony needs to look like in
 practice.
 
 **Where enforced (operationally, not on-chain):** deployment checklist in
 `DEPLOYMENT.md`; code review checklist item 1 in `CLAUDE.md`.
+
+## Admin rotation is a two-step propose/accept handshake
+
+`propose_admin(new_admin)` (current admin) followed by `accept_admin()`
+(called by `new_admin` itself) replaces what used to be a single-step
+`set_admin(new_admin)`. Nothing changes until `accept_admin()` succeeds.
+
+**Why:** a single-step rotation trusts that `new_admin` is correct and
+reachable at the moment it's set, with no way to verify that before the
+swap. A typo'd address, or one for which no valid signing setup actually
+exists yet, would permanently lock out admin control — there's no
+`require_auth()` on an address that can't produce a signature, and no
+"undo" once the old admin has been overwritten. Requiring the *proposed*
+address to call `accept_admin()` proves it can actually sign before the
+handshake completes, at the cost of one extra transaction. See
+`docs/adr/0002-two-step-admin-transfer.md`.
+
+**Where enforced:** `admin::propose_admin`/`admin::accept_admin`
+(`src/admin.rs`); covered by
+`test_propose_and_accept_admin_transfer`,
+`test_accept_admin_requires_proposed_admin_auth`, and
+`test_accept_admin_fails_without_pending_admin` in `src/test.rs`.
 
 ## `register_callback` idempotency: two independent guards
 

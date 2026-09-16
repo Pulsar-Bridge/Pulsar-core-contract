@@ -55,7 +55,8 @@ to arbitrary code with full access to every stored `Transaction`.
 threshold of signers colluding or being independently compromised." This
 contract has no way to enforce the threshold on-chain (Soroban doesn't
 expose signer-threshold introspection to contract code) — it is entirely an
-operational requirement on whoever runs `initialize()` and `set_admin()`.
+operational requirement on whoever runs `initialize()` and
+`propose_admin()`/`accept_admin()`.
 **Open work:** `DEPLOYMENT.md`'s key-ceremony section needs to stay
 operationally real (documented signers, a real signing workflow), not just
 a requirement on paper — re-verify this each time custody changes.
@@ -113,3 +114,19 @@ role (see F1/F2) and by Soroban's storage-rent economics, which charge for
 what's written — this is a cost/availability consideration for
 `pulsar-core`'s operator, not a distinct on-chain vulnerability beyond what
 F1/F2 already cover.
+
+### F8 — Accidental admin lockout via single-step rotation
+**Status:** closed by `docs/adr/0002-two-step-admin-transfer.md`.
+
+The original `set_admin(new_admin)` overwrote the admin address in one
+call with no verification that `new_admin` was correct or controllable. A
+typo'd address, or one whose multisig/DAO signer setup wasn't actually
+finished, would have permanently locked out admin control (`upgrade()`,
+`pause()`, `set_relay_signer()`) with no on-chain recovery path short of a
+fresh deployment.
+**Fix:** `set_admin()` was replaced with `propose_admin()` (current admin
+proposes) / `accept_admin()` (proposed address confirms via its own
+`require_auth()`). The rotation only takes effect once the new address
+proves it can sign. Covered by `test_propose_and_accept_admin_transfer`,
+`test_accept_admin_requires_proposed_admin_auth`, and
+`test_accept_admin_fails_without_pending_admin`.

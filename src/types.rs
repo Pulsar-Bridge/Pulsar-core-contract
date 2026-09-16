@@ -49,6 +49,10 @@ pub struct Transaction {
 pub enum StorageKey {
     /// Multisig/DAO-held admin address (instance storage).
     Admin,
+    /// Address proposed by the current admin via `propose_admin()`, not yet
+    /// confirmed. Cleared once `accept_admin()` succeeds. Instance storage.
+    /// See `docs/adr/0002-two-step-admin-transfer.md`.
+    PendingAdmin,
     /// Address authorized to register/confirm/complete/fail/refund transactions
     /// on behalf of the off-chain relay (instance storage).
     RelaySigner,
