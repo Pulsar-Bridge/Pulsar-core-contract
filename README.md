@@ -24,6 +24,32 @@ open findings.
 
 10 events (`EVENTS.md`), schema version 1.
 
+## Ecosystem
+
+`pulsar-core-contract` is the most mature repo in the Pulsar Bridge system —
+the on-chain source of truth that sibling repos consume via `EVENTS.md`'s
+versioned event schema.
+
+| Repo | Role | Status |
+|---|---|---|
+| `pulsar-core-contract` (this repo) | Soroban smart contract — on-chain source of truth for deposit transactions and the versioned event schema downstream repos consume. | Most mature; entry points + events implemented, tested, `make check`-green. |
+| `pulsar-core` | Off-chain relay this contract mirrors on-chain. Consumes this contract's events/entry-points. | Clone URL not yet filled in (see `CLAUDE.md.pulsar-core-contracts`). |
+| `pulsar-web` | Web frontend/consumer of the bridge. | Clone URL not yet filled in. |
+| `pulsar-swap` | Phase 2 consumer; this contract's schema is meant to extend additively for it once its interface is agreed. | Doesn't exist yet. |
+
+To pull the siblings in once their URLs are known:
+
+```sh
+git clone <pulsar-core-url> ../pulsar-core
+git clone <pulsar-web-url> ../pulsar-web
+```
+
+Before changing `EVENTS.md` or any `#[contractimpl]` signature, open the
+sibling repos and grep for how they actually consume it — don't assume,
+check. Any non-additive change to `EVENTS.md` needs advance notice to
+whoever owns `pulsar-core` and `pulsar-web` (and `pulsar-swap` once it
+exists) before it ships.
+
 ## Docs
 
 - [`EVENTS.md`](./EVENTS.md) — locked event schema for downstream consumers.
