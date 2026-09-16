@@ -79,13 +79,16 @@ version-write could silently reopen this.
 `check_and_mark_callback_seen` change.
 
 See `DECISIONS.md`'s "two independent guards" entry. Covered by
-`test_register_callback_is_idempotent`, which only exercises the
-within-TTL-window path — it does not (and, without a way to fast-forward
-ledger time in the current test harness, cannot easily) exercise the
-after-the-temporary-fence-expired path. The durable status check is what
-covers that case in production; there is no test asserting it directly
-because doing so requires manipulating temporary-storage TTL/expiry in the
-test environment.
+`test_register_callback_is_idempotent` (within-TTL-window path, via the
+temporary-storage fence) and
+`test_register_callback_idempotent_after_temp_fence_expires`
+(after-the-temporary-fence-expired path, via the durable status check).
+The latter previously had no direct test — ledger sequence numbers (which
+temporary-storage TTLs are counted in, not wall-clock time) can in fact be
+advanced directly in the test harness via
+`env.ledger().with_mut(|li| li.sequence_number += N)`, so both guards are
+now independently proven rather than one being covered only "in
+production."
 
 ### F6 — Free-form string fields have no source-chain-format validation
 **Status:** accepted risk.

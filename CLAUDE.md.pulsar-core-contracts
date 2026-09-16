@@ -35,13 +35,13 @@ and grep for how they currently consume it — don't assume, check.
 
 - All entry points, types, storage helpers, and 11 events are implemented and marked
   complete in the README's own status table.
-- 34 tests cover happy paths, an explicit auth-failure test for every relay-signer- and
+- 35 tests cover happy paths, an explicit auth-failure test for every relay-signer- and
   admin-gated entry point, invalid input, idempotency, state-machine guards,
   pause/upgrade, the two-step admin transfer, an EVENTS.md-conformance check
   (asserting a real event's exact topics/payload against the XDR the host actually
   emits, not just that the call returned `Ok`), and (in `validation.rs`'s own
   `#[cfg(test)]` module) the SEP-23 strkey validator against `stellar-strkey`'s own test
-  vectors. Grow this suite as new entry points and edge cases land — don't treat 34 as a
+  vectors. Grow this suite as new entry points and edge cases land — don't treat 35 as a
   ceiling.
 - `EVENTS.md` is **locked** — topic names, payload field types/order, and emission order
   are a cross-repo public API once Phase 2/3 subscribe to it. Additive/backward-compatible
@@ -84,7 +84,7 @@ and grep for how they currently consume it — don't assume, check.
 - Every new entry point needs: an explicit access-control decision (admin? relay_signer?
   public read-only?), input validation via `validation.rs`'s established patterns (SEP-23
   strkey CRC16 checks, string length caps), and tests covering both the happy path and
-  the auth-failure path, matching the existing 34-test style.
+  the auth-failure path, matching the existing 35-test style.
 
 ---
 

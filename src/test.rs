@@ -1,7 +1,7 @@
 #![cfg(test)]
 
 use soroban_sdk::{
-    testutils::{Address as _, BytesN as _},
+    testutils::{Address as _, BytesN as _, Ledger as _},
     Address, BytesN, Env, String,
 };
 
@@ -379,6 +379,37 @@ fn test_register_callback_is_idempotent() {
     // Second delivery of the same callback must be a no-op, not an error.
     h.client.register_callback(&id);
 
+    assert_eq!(
+        h.client.get_transaction(&id).status,
+        TransactionStatus::Completed
+    );
+}
+
+#[test]
+fn test_register_callback_idempotent_after_temp_fence_expires() {
+    // THREAT_MODEL.md's F5 previously claimed the durable-status-check path
+    // (as opposed to the temporary-storage fast path) "cannot easily" be
+    // exercised in tests because there's no way to fast-forward past the
+    // ~24h CallbackSeen TTL. That's not actually true: temporary storage
+    // TTLs are counted in ledger sequence numbers, not wall-clock time, and
+    // `env.ledger().with_mut` can advance the sequence directly.
+    let h = setup();
+    let id = register_default(&h);
+    h.client.confirm_transaction(&id);
+    h.client.register_callback(&id);
+    assert_eq!(
+        h.client.get_transaction(&id).status,
+        TransactionStatus::Completed
+    );
+
+    // CALLBACK_SEEN_TTL is 17_280 ledgers (src/storage.rs); advance past it
+    // so the CallbackSeen temporary-storage entry expires.
+    h.env.ledger().with_mut(|li| li.sequence_number += 17_281);
+
+    // A duplicate delivery arriving after the fence has expired must still
+    // be caught — by the durable `status == Completed` check, not the
+    // (now-expired) temporary fence — and must not error or re-transition.
+    h.client.register_callback(&id);
     assert_eq!(
         h.client.get_transaction(&id).status,
         TransactionStatus::Completed
