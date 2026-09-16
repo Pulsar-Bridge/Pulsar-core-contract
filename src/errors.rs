@@ -15,4 +15,6 @@ pub enum Error {
     InvalidStateTransition = 9,
     SchemaVersionMismatch = 10,
     NoPendingAdmin = 11,
+    NoPendingUpgrade = 12,
+    UpgradeTimelockNotElapsed = 13,
 }

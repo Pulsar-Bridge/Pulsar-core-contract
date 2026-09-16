@@ -13,7 +13,7 @@ mod test;
 use soroban_sdk::{contract, contractimpl, Address, BytesN, Env, String};
 
 pub use errors::Error;
-pub use types::{Transaction, TransactionStatus};
+pub use types::{PendingUpgrade, Transaction, TransactionStatus};
 
 use types::SCHEMA_VERSION;
 
@@ -201,12 +201,22 @@ impl PulsarCoreContract {
         admin::set_relay_signer(&env, new_relay_signer)
     }
 
-    pub fn upgrade(
+    pub fn propose_upgrade(
         env: Env,
         new_wasm_hash: BytesN<32>,
         expected_schema_version: u32,
     ) -> Result<(), Error> {
-        admin::upgrade(&env, new_wasm_hash, expected_schema_version)
+        admin::propose_upgrade(&env, new_wasm_hash, expected_schema_version)
+    }
+
+    pub fn execute_upgrade(env: Env) -> Result<(), Error> {
+        admin::execute_upgrade(&env)
+    }
+
+    /// Returns the currently proposed upgrade, if any. Errors with
+    /// `NoPendingUpgrade` otherwise.
+    pub fn get_pending_upgrade(env: Env) -> Result<PendingUpgrade, Error> {
+        storage::get_pending_upgrade(&env)
     }
 
     /// Shared state-machine guard + persist step for every status transition.

@@ -33,15 +33,15 @@ and grep for how they currently consume it — don't assume, check.
 
 ## Current state (respect the maturity here — don't rewrite what's working)
 
-- All entry points, types, storage helpers, and 11 events are implemented and marked
+- All entry points, types, storage helpers, and 12 events are implemented and marked
   complete in the README's own status table.
-- 35 tests cover happy paths, an explicit auth-failure test for every relay-signer- and
+- 38 tests cover happy paths, an explicit auth-failure test for every relay-signer- and
   admin-gated entry point, invalid input, idempotency, state-machine guards,
   pause/upgrade, the two-step admin transfer, an EVENTS.md-conformance check
   (asserting a real event's exact topics/payload against the XDR the host actually
   emits, not just that the call returned `Ok`), and (in `validation.rs`'s own
   `#[cfg(test)]` module) the SEP-23 strkey validator against `stellar-strkey`'s own test
-  vectors. Grow this suite as new entry points and edge cases land — don't treat 35 as a
+  vectors. Grow this suite as new entry points and edge cases land — don't treat 38 as a
   ceiling.
 - `EVENTS.md` is **locked** — topic names, payload field types/order, and emission order
   are a cross-repo public API once Phase 2/3 subscribe to it. Additive/backward-compatible
@@ -84,7 +84,7 @@ and grep for how they currently consume it — don't assume, check.
 - Every new entry point needs: an explicit access-control decision (admin? relay_signer?
   public read-only?), input validation via `validation.rs`'s established patterns (SEP-23
   strkey CRC16 checks, string length caps), and tests covering both the happy path and
-  the auth-failure path, matching the existing 35-test style.
+  the auth-failure path, matching the existing 38-test style.
 
 ---
 
@@ -95,8 +95,9 @@ and grep for how they currently consume it — don't assume, check.
    first thing the function does?
 2. Does every string/address input go through `validation.rs`'s guards before it's
    stored or acted on?
-3. Can the `upgrade()` entry point's `expected_schema_version` guard be bypassed by any
-   call ordering? Re-verify this any time `upgrade()` or `admin.rs` changes.
+3. Can `execute_upgrade()`'s `expected_schema_version` guard, or `propose_upgrade()`/
+   `execute_upgrade()`'s timelock, be bypassed by any call ordering? Re-verify this any
+   time either function or `admin.rs` changes.
 4. Review `THREAT_MODEL.md`'s open findings on a regular cadence, not just when someone
    asks — findings don't fix themselves by sitting there.
 

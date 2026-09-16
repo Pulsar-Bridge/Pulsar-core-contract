@@ -520,45 +520,89 @@ fn test_set_relay_signer_requires_admin_auth() {
     assert_eq!(h.client.get_relay_signer(), h.relay_signer);
 }
 
-// --- upgrade / schema version guard ---
+// --- upgrade timelock / schema version guard ---
 
-// The contract's own compiled Wasm, used to exercise `upgrade()` with a
-// real, host-accepted code blob (the host rejects arbitrary bytes — it
-// requires a valid contract metadata section). `make check` builds this
+// The contract's own compiled Wasm, used to exercise `execute_upgrade()`
+// with a real, host-accepted code blob (the host rejects arbitrary bytes —
+// it requires a valid contract metadata section). `make check` builds this
 // before `cargo test` runs; see the Makefile.
 const SELF_WASM: &[u8] =
     include_bytes!("../target/wasm32v1-none/release/pulsar_core_contract.wasm");
 
 #[test]
-fn test_upgrade_bumps_schema_version_and_rejects_replay() {
+fn test_propose_upgrade_requires_admin_auth() {
     let h = setup();
-    let new_wasm_hash = h.env.deployer().upload_contract_wasm(SELF_WASM);
-
-    assert_eq!(h.client.schema_version(), 1);
-    h.client.upgrade(&new_wasm_hash, &1);
-    assert_eq!(h.client.schema_version(), 2);
-
-    // Replaying the upgrade call with the same expected_schema_version must
-    // fail now that the guard has advanced — this is the exact scenario
-    // CLAUDE.md's security checklist flags: re-verify the guard can't be
-    // bypassed by a second call using a stale expected version.
-    //
-    // The first call above already swapped the contract's executable, so a
-    // second call through `h.client` would now dispatch into `MINIMAL_WASM`
-    // instead of re-checking our guard. Call the guarded function directly
-    // in the contract's storage context instead, which is what the guard
-    // itself actually needs to prove.
-    let res: Result<(), Error> = h.env.as_contract(&h.contract_id, || {
-        crate::admin::upgrade(&h.env, new_wasm_hash.clone(), 1)
-    });
-    assert_eq!(res, Err(Error::SchemaVersionMismatch));
+    let new_wasm_hash = BytesN::<32>::random(&h.env);
+    h.env.set_auths(&[]);
+    let res = h.client.try_propose_upgrade(&new_wasm_hash, &1);
+    assert!(res.is_err());
 }
 
 #[test]
-fn test_upgrade_requires_admin_auth() {
+fn test_execute_upgrade_requires_admin_auth() {
     let h = setup();
+    let new_wasm_hash = h.env.deployer().upload_contract_wasm(SELF_WASM);
+    h.client.propose_upgrade(&new_wasm_hash, &1);
+    h.env
+        .ledger()
+        .with_mut(|li| li.sequence_number += crate::storage::UPGRADE_TIMELOCK_LEDGERS);
+
     h.env.set_auths(&[]);
-    let new_wasm_hash = BytesN::<32>::random(&h.env);
-    let res = h.client.try_upgrade(&new_wasm_hash, &1);
+    let res = h.client.try_execute_upgrade();
     assert!(res.is_err());
+    assert_eq!(h.client.schema_version(), 1);
+}
+
+#[test]
+fn test_execute_upgrade_fails_without_pending_upgrade() {
+    let h = setup();
+    let res = h.client.try_execute_upgrade();
+    assert_eq!(res, Err(Ok(Error::NoPendingUpgrade)));
+}
+
+#[test]
+fn test_execute_upgrade_before_timelock_elapses_fails() {
+    let h = setup();
+    let new_wasm_hash = h.env.deployer().upload_contract_wasm(SELF_WASM);
+    h.client.propose_upgrade(&new_wasm_hash, &1);
+
+    // Not yet at earliest_ledger: must be rejected, not just delayed.
+    let res = h.client.try_execute_upgrade();
+    assert_eq!(res, Err(Ok(Error::UpgradeTimelockNotElapsed)));
+    assert_eq!(h.client.schema_version(), 1);
+
+    // One ledger short of the timelock must still fail.
+    h.env
+        .ledger()
+        .with_mut(|li| li.sequence_number += crate::storage::UPGRADE_TIMELOCK_LEDGERS - 1);
+    let res = h.client.try_execute_upgrade();
+    assert_eq!(res, Err(Ok(Error::UpgradeTimelockNotElapsed)));
+}
+
+#[test]
+fn test_execute_upgrade_after_timelock_bumps_schema_version_and_rejects_replay() {
+    let h = setup();
+    let new_wasm_hash = h.env.deployer().upload_contract_wasm(SELF_WASM);
+    h.client.propose_upgrade(&new_wasm_hash, &1);
+
+    h.env
+        .ledger()
+        .with_mut(|li| li.sequence_number += crate::storage::UPGRADE_TIMELOCK_LEDGERS);
+
+    assert_eq!(h.client.schema_version(), 1);
+    h.client.execute_upgrade();
+    assert_eq!(h.client.schema_version(), 2);
+
+    // Replaying execute_upgrade must fail now that the pending proposal has
+    // been consumed and cleared — this is the exact scenario CLAUDE.md's
+    // security checklist flags: re-verify the guard can't be bypassed by a
+    // second call. The first call above already swapped the contract's
+    // executable, so a second call through `h.client` would now dispatch
+    // into the swapped-in Wasm instead of re-checking our guard. Call the
+    // guarded function directly in the contract's storage context instead,
+    // which is what the guard itself actually needs to prove.
+    let res: Result<(), Error> = h
+        .env
+        .as_contract(&h.contract_id, || crate::admin::execute_upgrade(&h.env));
+    assert_eq!(res, Err(Error::NoPendingUpgrade));
 }

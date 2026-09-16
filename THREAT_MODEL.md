@@ -45,7 +45,8 @@ this contract. Off-chain reconciliation (re-registering under a new
 `pulsar-core`'s recovery path, not this contract's.
 
 ### F3 — Admin key compromise
-**Status:** open (process-level mitigation exists; no on-chain backstop is possible).
+**Status:** open (process-level mitigation exists; partial on-chain
+mitigation added for the upgrade path — see below).
 
 A compromised admin key can pause the contract indefinitely, rotate the
 relay signer to an attacker-controlled key, or upgrade the contract's WASM
@@ -56,21 +57,32 @@ threshold of signers colluding or being independently compromised." This
 contract has no way to enforce the threshold on-chain (Soroban doesn't
 expose signer-threshold introspection to contract code) — it is entirely an
 operational requirement on whoever runs `initialize()` and
-`propose_admin()`/`accept_admin()`.
+`propose_admin()`/`accept_admin()`. Additionally, `propose_upgrade()`/
+`execute_upgrade()` (`docs/adr/0003-upgrade-timelock.md`) now requires a
+~48h delay between proposing and executing a WASM swap, giving anyone
+watching the `upgrade_prop` event a window to notice and react before a
+malicious upgrade takes effect — this narrows the worst-case impact
+(instant, silent code replacement) but does not stop a sufficiently
+compromised multisig from eventually pushing the upgrade once the delay
+elapses. `pause()`/`set_relay_signer()` rotation are not timelocked and
+remain immediately available as the fast-response containment tools.
 **Open work:** `DEPLOYMENT.md`'s key-ceremony section needs to stay
 operationally real (documented signers, a real signing workflow), not just
 a requirement on paper — re-verify this each time custody changes.
 
-### F4 — `upgrade()` schema-version guard bypass
-**Status:** closed, re-verify on every `admin.rs`/`upgrade()` change.
+### F4 — `execute_upgrade()` schema-version guard bypass
+**Status:** closed, re-verify on every `admin.rs`/`execute_upgrade()` change.
 
-`upgrade()` is a compare-and-swap on `expected_schema_version`: it checks
+`execute_upgrade()` is a compare-and-swap on `expected_schema_version`
+(recorded at `propose_upgrade()` time, re-checked at execution): it checks
 the guard and bumps the stored version in the same call, so a second call
-with a stale `expected_schema_version` (naive retry or attempted re-entrant
-call) fails instead of re-running the upgrade.
-Covered by `test_upgrade_bumps_schema_version_and_rejects_replay`. Per
-`CLAUDE.md`'s security checklist item 3, re-verify this invariant by
-inspection (not just by the existing test) any time `upgrade()` or
+fails instead of re-running the upgrade — and since the pending proposal is
+cleared on success, a second `execute_upgrade()` call fails with
+`NoPendingUpgrade` regardless.
+Covered by
+`test_execute_upgrade_after_timelock_bumps_schema_version_and_rejects_replay`.
+Per `CLAUDE.md`'s security checklist item 3, re-verify this invariant by
+inspection (not just by the existing test) any time `execute_upgrade()` or
 `admin.rs` changes — a refactor that reorders the version-check and
 version-write could silently reopen this.
 

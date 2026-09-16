@@ -77,14 +77,14 @@ pub fn set_relay_signer(env: &Env, new_relay_signer: Address) -> Result<(), Erro
     Ok(())
 }
 
-/// Upgrades the contract's WASM. `expected_schema_version` must match the
-/// currently stored schema version — this is a compare-and-swap, not a
-/// read-then-write: on success the stored version is bumped in the same
-/// call, so a second `upgrade()` call with the same `expected_schema_version`
-/// (whether a naive retry or an attempted re-entrant call) fails instead of
-/// re-running the upgrade. Re-verify this invariant any time `upgrade()` or
-/// this module changes (CLAUDE.md security checklist item 3).
-pub fn upgrade(
+/// Step 1 of 2 for a WASM upgrade: records `new_wasm_hash` as pending,
+/// executable no earlier than `UPGRADE_TIMELOCK_LEDGERS` ledgers from now.
+/// `expected_schema_version` is checked against the current stored version
+/// here (fail fast) and re-checked in `execute_upgrade` (defense-in-depth,
+/// same compare-and-swap spirit as the original single-step guard — see
+/// `docs/adr/0003-upgrade-timelock.md`). Calling this again before executing
+/// overwrites any still-pending proposal and resets its timelock.
+pub fn propose_upgrade(
     env: &Env,
     new_wasm_hash: BytesN<32>,
     expected_schema_version: u32,
@@ -96,11 +96,54 @@ pub fn upgrade(
         return Err(Error::SchemaVersionMismatch);
     }
 
+    let earliest_ledger = env.ledger().sequence() + storage::UPGRADE_TIMELOCK_LEDGERS;
+    storage::set_pending_upgrade(
+        env,
+        &crate::types::PendingUpgrade {
+            new_wasm_hash: new_wasm_hash.clone(),
+            expected_schema_version,
+            earliest_ledger,
+        },
+    );
+    storage::extend_instance_ttl(env);
+
+    events::upgrade_proposed(
+        env,
+        &new_wasm_hash,
+        expected_schema_version,
+        earliest_ledger,
+    );
+    Ok(())
+}
+
+/// Step 2 of 2: executes a previously proposed WASM upgrade once its
+/// timelock has elapsed. `expected_schema_version` (recorded at proposal
+/// time) must still match the currently stored schema version — this is a
+/// compare-and-swap, not a read-then-write: on success the stored version is
+/// bumped and the pending proposal cleared in the same call, so a second
+/// `execute_upgrade()` call (naive retry or attempted re-entrant call) fails
+/// with `NoPendingUpgrade` instead of re-running the upgrade. Re-verify this
+/// invariant any time `execute_upgrade()` or this module changes (CLAUDE.md
+/// security checklist item 3).
+pub fn execute_upgrade(env: &Env) -> Result<(), Error> {
+    require_admin(env)?;
+
+    let pending = storage::get_pending_upgrade(env)?;
+    if env.ledger().sequence() < pending.earliest_ledger {
+        return Err(Error::UpgradeTimelockNotElapsed);
+    }
+
+    let current_version = storage::get_schema_version(env);
+    if current_version != pending.expected_schema_version {
+        return Err(Error::SchemaVersionMismatch);
+    }
+
     let new_version = current_version + 1;
     storage::set_schema_version(env, new_version);
+    storage::clear_pending_upgrade(env);
     env.deployer()
-        .update_current_contract_wasm(new_wasm_hash.clone());
+        .update_current_contract_wasm(pending.new_wasm_hash.clone());
 
-    events::contract_upgraded(env, &new_wasm_hash, current_version, new_version);
+    events::contract_upgraded(env, &pending.new_wasm_hash, current_version, new_version);
     Ok(())
 }

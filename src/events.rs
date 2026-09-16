@@ -82,6 +82,13 @@ pub struct RelaySignerUpdated {
     pub new_relay_signer: Address,
 }
 
+#[contractevent(topics = ["upgrade_prop"])]
+pub struct UpgradeProposed {
+    pub new_wasm_hash: BytesN<32>,
+    pub expected_schema_version: u32,
+    pub earliest_ledger: u32,
+}
+
 #[contractevent(topics = ["upgrade"])]
 pub struct ContractUpgraded {
     pub new_wasm_hash: BytesN<32>,
@@ -182,6 +189,20 @@ pub fn relay_signer_updated(env: &Env, old_relay_signer: &Address, new_relay_sig
     RelaySignerUpdated {
         old_relay_signer: old_relay_signer.clone(),
         new_relay_signer: new_relay_signer.clone(),
+    }
+    .publish(env);
+}
+
+pub fn upgrade_proposed(
+    env: &Env,
+    new_wasm_hash: &BytesN<32>,
+    expected_schema_version: u32,
+    earliest_ledger: u32,
+) {
+    UpgradeProposed {
+        new_wasm_hash: new_wasm_hash.clone(),
+        expected_schema_version,
+        earliest_ledger,
     }
     .publish(env);
 }

@@ -15,9 +15,9 @@ event-schema change. Any entry there should correspond to a version note in
   `refund_transaction` as alternate terminal paths from `Pending` or
   `Confirmed`).
 - Admin entry points: `pause`/`unpause`, `propose_admin`/`accept_admin`
-  (two-step admin transfer), `set_relay_signer`, `upgrade`
-  (schema-version-guarded WASM hot-swap).
-- 35-test suite covering happy paths, auth failures (an explicit
+  (two-step admin transfer), `set_relay_signer`, `propose_upgrade`/
+  `execute_upgrade` (schema-version-guarded, timelocked WASM hot-swap).
+- 38-test suite covering happy paths, auth failures (an explicit
   auth-failure test for every relay-signer- and admin-gated entry point),
   invalid input, idempotency, state-machine guards, pause/upgrade, the
   two-step admin transfer, an EVENTS.md-conformance check, and the SEP-23
@@ -38,6 +38,14 @@ event-schema change. Any entry there should correspond to a version note in
   the old single-step call would have permanently locked out admin control
   with no recovery path; the new address proving it can sign before the
   swap closes that gap. See `docs/adr/0002-two-step-admin-transfer.md`.
+- Replaced the single-step `upgrade(new_wasm_hash, expected_schema_version)`
+  with a timelocked `propose_upgrade(...)` / `execute_upgrade()` pair:
+  `execute_upgrade()` fails with `Error::UpgradeTimelockNotElapsed` until
+  `storage::UPGRADE_TIMELOCK_LEDGERS` (~48h) have passed since the matching
+  `propose_upgrade()` call. The old single-step call took effect instantly,
+  giving no one a chance to notice a malicious upgrade from a compromised
+  admin key before it landed. See `docs/adr/0003-upgrade-timelock.md` and
+  `THREAT_MODEL.md`'s F3.
 
 ### Fixed
 - `rust-toolchain.toml` targeted `wasm32-unknown-unknown`, which current
@@ -72,9 +80,10 @@ event-schema change. Any entry there should correspond to a version note in
   that nothing else in the suite would.
 
 ### Event schema
-- `EVENTS.md` schema version: **1**. Eleven events defined: `init`,
+- `EVENTS.md` schema version: **1**. Twelve events defined: `init`,
   `tx_reg`, `tx_conf`, `tx_comp`, `tx_fail`, `tx_refund`, `pause`,
-  `admin_prop`, `admin_upd`, `relay_upd`, `upgrade`. `admin_prop` was added
-  alongside the two-step admin transfer above. This is still the first
-  published version — no subscribers yet, so no advance-notice obligation
-  applied to this release.
+  `admin_prop`, `admin_upd`, `relay_upd`, `upgrade_prop`, `upgrade`.
+  `admin_prop` was added alongside the two-step admin transfer above;
+  `upgrade_prop` was added alongside the upgrade timelock (see "Changed"
+  below). This is still the first published version — no subscribers yet,
+  so no advance-notice obligation applied to this release.

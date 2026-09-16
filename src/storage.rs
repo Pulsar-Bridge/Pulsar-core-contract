@@ -5,7 +5,7 @@
 use soroban_sdk::{Address, Env, String};
 
 use crate::errors::Error;
-use crate::types::{StorageKey, Transaction, TransactionStatus};
+use crate::types::{PendingUpgrade, StorageKey, Transaction, TransactionStatus};
 
 // Instance storage (admin/config) TTL: extended on every admin write so the
 // contract's own config never expires while it's actively administered.
@@ -21,6 +21,12 @@ const TX_TTL_EXTEND_TO: u32 = 17_280 * 365; // ~1 year
 // the window in which the relay might retry a delivery, per CLAUDE.md's
 // "~24h TTL" note. Ledger close is ~5s, so 24h ≈ 17,280 ledgers.
 const CALLBACK_SEEN_TTL: u32 = 17_280;
+
+// Minimum delay between propose_upgrade() and a successful execute_upgrade(),
+// per docs/adr/0003-upgrade-timelock.md: ~48h at ~5s/ledger, giving
+// stakeholders a window to notice and react to a malicious upgrade proposal
+// from a compromised admin key before it can take effect.
+pub const UPGRADE_TIMELOCK_LEDGERS: u32 = 17_280 * 2;
 
 pub fn extend_instance_ttl(env: &Env) {
     env.storage()
@@ -102,6 +108,23 @@ pub fn set_schema_version(env: &Env, version: u32) {
     env.storage()
         .instance()
         .set(&StorageKey::SchemaVersion, &version);
+}
+
+pub fn get_pending_upgrade(env: &Env) -> Result<PendingUpgrade, Error> {
+    env.storage()
+        .instance()
+        .get(&StorageKey::PendingUpgrade)
+        .ok_or(Error::NoPendingUpgrade)
+}
+
+pub fn set_pending_upgrade(env: &Env, pending: &PendingUpgrade) {
+    env.storage()
+        .instance()
+        .set(&StorageKey::PendingUpgrade, pending);
+}
+
+pub fn clear_pending_upgrade(env: &Env) {
+    env.storage().instance().remove(&StorageKey::PendingUpgrade);
 }
 
 pub fn has_transaction(env: &Env, transaction_id: &String) -> bool {

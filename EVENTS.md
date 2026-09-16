@@ -7,7 +7,7 @@ and decode these payloads. Treat a change here the way you'd treat a change
 to a REST API contract, not an internal implementation detail.
 
 Schema version: **1** (`PulsarCoreContract::schema_version()`, bumped by
-`upgrade()`; see §5).
+`execute_upgrade()`; see §5).
 
 ## How to read this document
 
@@ -114,8 +114,18 @@ Emitted by `set_relay_signer()`. Topics: `("relay_upd",)`.
 | `old_relay_signer` | `Address` | |
 | `new_relay_signer` | `Address` | |
 
+### `upgrade_prop` — `UpgradeProposed`
+Emitted by `propose_upgrade()`, step 1 of the timelocked upgrade (see
+`docs/adr/0003-upgrade-timelock.md`). Topics: `("upgrade_prop",)`.
+
+| Field | Type | Notes |
+|---|---|---|
+| `new_wasm_hash` | `BytesN<32>` | |
+| `expected_schema_version` | `u32` | Checked again at execution time. |
+| `earliest_ledger` | `u32` | `execute_upgrade()` fails before this ledger sequence number. |
+
 ### `upgrade` — `ContractUpgraded`
-Emitted by `upgrade()`. Topics: `("upgrade",)`.
+Emitted by `execute_upgrade()`, step 2 of the timelocked upgrade. Topics: `("upgrade",)`.
 
 | Field | Type | Notes |
 |---|---|---|
@@ -143,8 +153,8 @@ lifecycle event will ever follow for that `transaction_id`.
 ## §5. Versioning policy
 
 `schema_version` (returned by `PulsarCoreContract::schema_version()`,
-bumped by `upgrade()`) tracks this document, not just the `Transaction`
-struct's on-chain layout.
+bumped by `execute_upgrade()`) tracks this document, not just the
+`Transaction` struct's on-chain layout.
 
 - **Additive / backward-compatible** (new event, new optional-to-ignore
   field appended to an existing event's payload): minor/patch bump. Ship the

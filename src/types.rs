@@ -1,4 +1,4 @@
-use soroban_sdk::{contracttype, Address, String};
+use soroban_sdk::{contracttype, Address, BytesN, String};
 
 /// Current on-chain storage/event schema version. Bump per the rules in EVENTS.md
 /// whenever a breaking change to `Transaction` or the event payloads ships.
@@ -42,6 +42,18 @@ pub struct Transaction {
     pub updated_at: u64,
 }
 
+/// A WASM upgrade proposed via `propose_upgrade()`, not yet executed.
+/// `earliest_ledger` is the first ledger sequence number at which
+/// `execute_upgrade()` is allowed to succeed — see
+/// `docs/adr/0003-upgrade-timelock.md`.
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PendingUpgrade {
+    pub new_wasm_hash: BytesN<32>,
+    pub expected_schema_version: u32,
+    pub earliest_ledger: u32,
+}
+
 /// Storage keys. Any change to variant names/shapes here is a breaking change
 /// requiring a fresh deployment, not an in-place upgrade (see CLAUDE.md).
 #[contracttype]
@@ -58,8 +70,12 @@ pub enum StorageKey {
     RelaySigner,
     /// bool, instance storage.
     Paused,
-    /// u32, instance storage. Guards `upgrade()`.
+    /// u32, instance storage. Guards `execute_upgrade()`.
     SchemaVersion,
+    /// WASM upgrade proposed via `propose_upgrade()`, not yet executed.
+    /// Cleared once `execute_upgrade()` succeeds. Instance storage. See
+    /// `docs/adr/0003-upgrade-timelock.md`.
+    PendingUpgrade,
     /// Durable record of a transaction, keyed by transaction_id. Persistent storage.
     Transaction(String),
     /// Short-TTL idempotency fence for `register_callback`, keyed by transaction_id.

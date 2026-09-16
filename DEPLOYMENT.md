@@ -73,12 +73,20 @@ itself and no valid admin auth is available to correct it.
 
 ## Upgrade
 
-`upgrade()` replaces the currently-deployed contract's executable in place
-— the contract's on-chain address, and all its persistent `Transaction`
-storage, are preserved. This is **not** available for storage-layout
-changes; see `DECISIONS.md`'s "Storage layout changes require a fresh
-deployment" entry — if the change you're deploying touches `Transaction` or
-`StorageKey`, stop and re-read that entry before proceeding here.
+`execute_upgrade()` replaces the currently-deployed contract's executable
+in place — the contract's on-chain address, and all its persistent
+`Transaction` storage, are preserved. This is **not** available for
+storage-layout changes; see `DECISIONS.md`'s "Storage layout changes
+require a fresh deployment" entry — if the change you're deploying touches
+`Transaction` or `StorageKey`, stop and re-read that entry before
+proceeding here.
+
+Upgrading is now a two-step, timelocked process (`propose_upgrade()` then
+`execute_upgrade()`, no earlier than ~48h later — see
+`docs/adr/0003-upgrade-timelock.md`), not a single atomic call. Plan the
+~48h wait into your release timeline; it applies to emergency patches too
+(`pause()` is the immediate-response tool in the meantime, not a way around
+the timelock).
 
 1. Build the new WASM (`make wasm`) from the reviewed, merged code.
 2. Upload it without swapping it in yet (`contract install` is deprecated —
@@ -95,30 +103,46 @@ deployment" entry — if the change you're deploying touches `Transaction` or
    stellar contract invoke --id <contract-id> --network <network> \
      -- schema_version
    ```
-4. Call `upgrade()` with that exact value as `expected_schema_version` —
-   this requires all ≥3-of-5 (or DAO) admin signatures per the key ceremony
-   above:
+4. Call `propose_upgrade()` with that exact value as
+   `expected_schema_version` — this requires all ≥3-of-5 (or DAO) admin
+   signatures per the key ceremony above:
    ```sh
    stellar contract invoke \
      --id <contract-id> \
      --source <admin-signer> \
      --network <network> \
-     -- upgrade \
+     -- propose_upgrade \
      --new_wasm_hash <hash-from-step-2> \
      --expected_schema_version <value-from-step-3>
    ```
    A stale `expected_schema_version` (someone else's upgrade already landed
    since you read it in step 3) fails closed with
    `Error::SchemaVersionMismatch` — re-read the current version and retry
-   rather than assuming the call is safe to blindly resubmit.
-5. Confirm the new `schema_version()` reads as expected, and confirm the
+   rather than assuming the call is safe to blindly resubmit. Confirm the
+   `upgrade_prop` event (`EVENTS.md`) was emitted with the expected
+   `new_wasm_hash` and `earliest_ledger` — this is subscriber teams' and
+   signers' notice window, so make sure it's actually visible before
+   waiting it out silently.
+5. Wait until the current ledger sequence has reached `earliest_ledger`
+   (`get_pending_upgrade()` returns it), then call `execute_upgrade()` —
+   again requiring admin signatures:
+   ```sh
+   stellar contract invoke \
+     --id <contract-id> \
+     --source <admin-signer> \
+     --network <network> \
+     -- execute_upgrade
+   ```
+   Calling this before `earliest_ledger` fails closed with
+   `Error::UpgradeTimelockNotElapsed`.
+6. Confirm the new `schema_version()` reads as expected, and confirm the
    `upgrade` event (`EVENTS.md`) was emitted with the expected
    `new_wasm_hash`.
 
 ## Post-deployment checklist
 
-- [ ] `initialize()` (or `upgrade()`) transaction confirmed on-chain, not
-      just submitted.
+- [ ] `initialize()` (or `execute_upgrade()`) transaction confirmed
+      on-chain, not just submitted.
 - [ ] `get_admin()` and `get_relay_signer()` return the expected accounts.
 - [ ] `is_paused()` returns `false` (a fresh deployment should not start
       paused).

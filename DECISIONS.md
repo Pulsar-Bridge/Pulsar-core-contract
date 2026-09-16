@@ -12,9 +12,10 @@ index; `docs/adr/` is where the "why" lives for anything non-obvious.
 multisig (≥3-of-5 threshold) or DAO-controlled Stellar account. Never a
 single signer — not even on testnet.
 
-**Why:** the admin address can call `upgrade()`, which replaces the
-contract's WASM outright. A compromised single-signer admin key doesn't just
-let an attacker rotate roles or pause the contract; it lets them deploy
+**Why:** the admin address can call `propose_upgrade()`/`execute_upgrade()`,
+which replaces the contract's WASM outright (subject to the timelock in
+`docs/adr/0003-upgrade-timelock.md`). A compromised single-signer admin key
+doesn't just let an attacker rotate roles or pause the contract; it lets them deploy
 arbitrary code with full access to every stored `Transaction` and to the
 `relay_signer` role. The contract has no on-chain way to enforce that an
 `Address` is actually a multisig/DAO account (Soroban doesn't expose signer
@@ -50,6 +51,31 @@ handshake completes, at the cost of one extra transaction. See
 `test_propose_and_accept_admin_transfer`,
 `test_accept_admin_requires_proposed_admin_auth`, and
 `test_accept_admin_fails_without_pending_admin` in `src/test.rs`.
+
+## Upgrades are timelocked: propose now, execute after a minimum delay
+
+`propose_upgrade(new_wasm_hash, expected_schema_version)` (admin) followed
+by `execute_upgrade()` (admin, no earlier than
+`storage::UPGRADE_TIMELOCK_LEDGERS` — ~48h — after the proposal) replaces
+what used to be a single-step `upgrade(new_wasm_hash, expected_schema_version)`.
+
+**Why:** the original single-step `upgrade()` took effect in the same
+transaction that proposed it — a compromised admin key (or signers
+colluding beyond the multisig threshold) could swap in malicious code with
+zero warning. A mandatory delay between proposal and execution gives
+anyone watching the chain (subscribers to the `upgrade_prop` event, signers
+on the admin multisig who didn't actually sign the proposal, off-chain
+monitoring) a window to notice and react before the swap takes effect. This
+does not require a new trust role or a threshold signature scheme — it only
+requires that someone is watching. See
+`docs/adr/0003-upgrade-timelock.md` for the alternatives considered
+(a guardian/veto role, a configurable delay) and why they were rejected.
+
+**Where enforced:** `admin::propose_upgrade`/`admin::execute_upgrade`
+(`src/admin.rs`); covered by
+`test_execute_upgrade_before_timelock_elapses_fails` and
+`test_execute_upgrade_after_timelock_bumps_schema_version_and_rejects_replay`
+in `src/test.rs`.
 
 ## `register_callback` idempotency: two independent guards
 
@@ -93,6 +119,6 @@ comment at its definition.
 
 Any change to the `Transaction` struct's field set/types, or to the
 `StorageKey` enum's variants, is a breaking change requiring a fresh
-contract deployment — `upgrade()`'s WASM hot-swap does not migrate existing
-persistent storage to a new layout. Flag this explicitly in any PR that
-touches `types.rs`'s `Transaction` or `StorageKey`.
+contract deployment — `execute_upgrade()`'s WASM hot-swap does not migrate
+existing persistent storage to a new layout. Flag this explicitly in any PR
+that touches `types.rs`'s `Transaction` or `StorageKey`.

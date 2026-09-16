@@ -19,9 +19,10 @@ test`. This must be green before any change is "done" — it's the exact bar
 CI enforces.
 
 The WASM build has to happen before `clippy`/`test`, not after: the test
-suite's `upgrade()` coverage
-(`test_upgrade_bumps_schema_version_and_rejects_replay` in `src/test.rs`)
-embeds the contract's own compiled WASM via `include_bytes!` to exercise a
+suite's upgrade-timelock coverage
+(`test_execute_upgrade_after_timelock_bumps_schema_version_and_rejects_replay`
+in `src/test.rs`) embeds the contract's own compiled WASM via
+`include_bytes!` to exercise a
 real, host-accepted code swap (the host rejects arbitrary bytes — it
 requires a valid contract metadata section, which only a real build
 produces). If you change contract code and only run `cargo test` directly
