@@ -1,6 +1,6 @@
 # Pulsar Bridge — pulsar-core-contracts
 
-You are working inside **https://github.com/Synapse-bridgez/synapse-core-contracts**, the Soroban smart contract that is the
+You are working inside **https://github.com/Pulsar-Bridge/Pulsar-core-contract**, the Soroban smart contract that is the
 on-chain mirror of the `pulsar-core` off-chain relay, and the most mature repo in the
 Pulsar Bridge system. This file is your standing brief for this repo. Read it before
 making changes.
@@ -35,9 +35,12 @@ and grep for how they currently consume it — don't assume, check.
 
 - All entry points, types, storage helpers, and 10 events are implemented and marked
   complete in the README's own status table.
-- 20 tests cover happy paths, auth failures, invalid input, idempotency, state-machine
-  guards, and pause/upgrade. Grow this suite as new entry points and edge cases land —
-  don't treat 20 as a ceiling.
+- 25 tests cover happy paths, auth failures, invalid input, idempotency, state-machine
+  guards, pause/upgrade, an EVENTS.md-conformance check (asserting a real event's exact
+  topics/payload against the XDR the host actually emits, not just that the call
+  returned `Ok`), and (in `validation.rs`'s own `#[cfg(test)]` module) the SEP-23 strkey
+  validator against `stellar-strkey`'s own test vectors. Grow this suite as new entry
+  points and edge cases land — don't treat 25 as a ceiling.
 - `EVENTS.md` is **locked** — topic names, payload field types/order, and emission order
   are a cross-repo public API once Phase 2/3 subscribe to it. Additive/backward-compatible
   changes are a minor/patch bump; removal, rename, reorder, type change, or emission-order

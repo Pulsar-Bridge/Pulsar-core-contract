@@ -125,3 +125,64 @@ fn crc16_xmodem(data: &[u8]) -> u16 {
     }
     crc
 }
+
+#[cfg(test)]
+mod tests {
+    //! `validate_strkey_ed25519_public_key` has no caller anywhere in the
+    //! contract yet (see the `#[allow(dead_code)]` rationale above), so
+    //! nothing else in the test suite exercises this hand-rolled base32 +
+    //! CRC16 implementation. Test it directly against vectors from
+    //! `stellar-strkey`'s own test suite so it's known-correct before any
+    //! future entry point comes to depend on it.
+    use soroban_sdk::{Env, String as SorobanString};
+
+    use super::validate_strkey_ed25519_public_key;
+
+    // From stellar-strkey's tests/tests.rs::test_valid_public_keys /
+    // test_invalid_public_keys.
+    const VALID_1: &str = "GA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5SOAOPIFY6YQHES5";
+    const VALID_2: &str = "GA7QYNF7SOWQ3GLR2BGMZEHXAVIRZA4KVWLTJJFC7MGXUA74P7UJVSGZ";
+    // VALID_2 with its version byte's low 3 bits corrupted (encoded
+    // algorithm changes from 0/ed25519 to 7/invalid).
+    const INVALID_VERSION: &str = "G47QYNF7SOWQ3GLR2BGMZEHXAVIRZA4KVWLTJJFC7MGXUA74P7UJVP2I";
+
+    #[test]
+    fn accepts_known_valid_strkeys() {
+        let env = Env::default();
+        assert!(
+            validate_strkey_ed25519_public_key(&SorobanString::from_str(&env, VALID_1)).is_ok()
+        );
+        assert!(
+            validate_strkey_ed25519_public_key(&SorobanString::from_str(&env, VALID_2)).is_ok()
+        );
+    }
+
+    #[test]
+    fn rejects_wrong_length() {
+        let env = Env::default();
+        let short = SorobanString::from_str(&env, "GAAAAAAAACGC6");
+        assert!(validate_strkey_ed25519_public_key(&short).is_err());
+    }
+
+    #[test]
+    fn rejects_bad_version_byte() {
+        let env = Env::default();
+        let bad = SorobanString::from_str(&env, INVALID_VERSION);
+        assert!(validate_strkey_ed25519_public_key(&bad).is_err());
+    }
+
+    #[test]
+    fn rejects_bad_checksum() {
+        let env = Env::default();
+        // Flip the last character of a valid strkey: same length and
+        // version byte, but the payload/checksum no longer agree.
+        let mut buf = [0u8; VALID_1.len()];
+        buf.copy_from_slice(VALID_1.as_bytes());
+        let last = buf.len() - 1;
+        buf[last] = if buf[last] == b'5' { b'6' } else { b'5' };
+        let corrupted = core::str::from_utf8(&buf).unwrap();
+
+        let bad = SorobanString::from_str(&env, corrupted);
+        assert!(validate_strkey_ed25519_public_key(&bad).is_err());
+    }
+}

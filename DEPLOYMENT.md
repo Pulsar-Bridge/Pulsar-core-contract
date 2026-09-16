@@ -80,9 +80,10 @@ deployment" entry — if the change you're deploying touches `Transaction` or
 `StorageKey`, stop and re-read that entry before proceeding here.
 
 1. Build the new WASM (`make wasm`) from the reviewed, merged code.
-2. Upload it without swapping it in yet:
+2. Upload it without swapping it in yet (`contract install` is deprecated —
+   use `contract upload`):
    ```sh
-   stellar contract install \
+   stellar contract upload \
      --wasm target/wasm32v1-none/release/pulsar_core_contract.wasm \
      --source <admin-signer> \
      --network <network>

@@ -86,6 +86,52 @@ fn test_register_transaction_happy_path() {
 }
 
 #[test]
+fn test_register_transaction_emits_tx_reg_event() {
+    // EVENTS.md is a cross-repo contract: prove at least one event actually
+    // matches what it documents (topics, field names/types, and that the
+    // payload really is the `#[contractevent]` self-describing map), not
+    // just that `register_transaction` returns Ok.
+    //
+    // `env.events().all()` only reflects the *last* contract invocation, so
+    // this reads no state via the client after the call under test — any
+    // follow-up call (even a read-only query) would replace it with that
+    // call's (empty) event list.
+    use soroban_sdk::{testutils::Events as _, Event as _};
+
+    let h = setup();
+    let id = tx_id(&h.env, "tx-event");
+    let sender = String::from_str(&h.env, "GABC123SENDERADDR");
+    let recipient = Address::generate(&h.env);
+    let source_chain = String::from_str(&h.env, "ethereum");
+    let dest_chain = String::from_str(&h.env, "stellar");
+    let created_at = h.env.ledger().timestamp();
+
+    h.client.register_transaction(
+        &id,
+        &sender,
+        &recipient,
+        &1_000_i128,
+        &source_chain,
+        &dest_chain,
+    );
+
+    let expected = crate::events::TransactionRegistered {
+        transaction_id: id,
+        sender,
+        recipient,
+        amount: 1_000_i128,
+        source_chain,
+        dest_chain,
+        created_at,
+    };
+
+    assert_eq!(
+        h.env.events().all(),
+        [expected.to_xdr(&h.env, &h.contract_id)]
+    );
+}
+
+#[test]
 fn test_register_transaction_duplicate_id_fails() {
     let h = setup();
     let id = register_default(&h);

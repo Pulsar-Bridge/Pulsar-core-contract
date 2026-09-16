@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 description = "On-chain contract for Pulsar Bridge: tracks deposit transaction lifecycle and emits a versioned event schema for downstream consumers."
 license = "Apache-2.0"
-repository = "https://github.com/Synapse-bridgez/synapse-core-contracts"
+repository = "https://github.com/Pulsar-Bridge/Pulsar-core-contract"
 
 [lib]
 crate-type = ["cdylib", "rlib"]
