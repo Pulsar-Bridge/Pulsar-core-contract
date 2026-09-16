@@ -127,11 +127,7 @@ impl PulsarCoreContract {
     }
 
     /// Marks a `Pending` or `Confirmed` transaction `Failed` with a reason.
-    pub fn fail_transaction(
-        env: Env,
-        transaction_id: String,
-        reason: String,
-    ) -> Result<(), Error> {
+    pub fn fail_transaction(env: Env, transaction_id: String, reason: String) -> Result<(), Error> {
         let relay_signer = storage::get_relay_signer(&env)?;
         relay_signer.require_auth();
         storage::require_not_paused(&env)?;
@@ -204,11 +200,7 @@ impl PulsarCoreContract {
     }
 
     /// Shared state-machine guard + persist step for every status transition.
-    fn transition(
-        env: &Env,
-        transaction_id: &String,
-        to: TransactionStatus,
-    ) -> Result<(), Error> {
+    fn transition(env: &Env, transaction_id: &String, to: TransactionStatus) -> Result<(), Error> {
         let mut tx = storage::get_transaction(env, transaction_id)?;
         storage::assert_transition(&tx.status, &to)?;
         tx.status = to;

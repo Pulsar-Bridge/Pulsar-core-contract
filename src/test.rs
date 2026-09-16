@@ -9,6 +9,7 @@ use crate::{Error, PulsarCoreContract, PulsarCoreContractClient, TransactionStat
 
 struct Harness<'a> {
     env: Env,
+    contract_id: Address,
     client: PulsarCoreContractClient<'a>,
     admin: Address,
     relay_signer: Address,
@@ -27,6 +28,7 @@ fn setup() -> Harness<'static> {
 
     Harness {
         env,
+        contract_id,
         client,
         admin,
         relay_signer,
@@ -110,9 +112,14 @@ fn test_register_transaction_rejects_non_positive_amount() {
     let recipient = Address::generate(&h.env);
     let source_chain = String::from_str(&h.env, "ethereum");
     let dest_chain = String::from_str(&h.env, "stellar");
-    let res = h
-        .client
-        .try_register_transaction(&id, &sender, &recipient, &0_i128, &source_chain, &dest_chain);
+    let res = h.client.try_register_transaction(
+        &id,
+        &sender,
+        &recipient,
+        &0_i128,
+        &source_chain,
+        &dest_chain,
+    );
     assert_eq!(res, Err(Ok(Error::InvalidInput)));
 }
 
@@ -185,10 +192,16 @@ fn test_full_lifecycle_pending_to_completed() {
     let id = register_default(&h);
 
     h.client.confirm_transaction(&id);
-    assert_eq!(h.client.get_transaction(&id).status, TransactionStatus::Confirmed);
+    assert_eq!(
+        h.client.get_transaction(&id).status,
+        TransactionStatus::Confirmed
+    );
 
     h.client.register_callback(&id);
-    assert_eq!(h.client.get_transaction(&id).status, TransactionStatus::Completed);
+    assert_eq!(
+        h.client.get_transaction(&id).status,
+        TransactionStatus::Completed
+    );
 }
 
 #[test]
@@ -217,17 +230,29 @@ fn test_pending_can_be_failed_and_refunded_respectively() {
     let id_fail = register_default(&h);
     h.client
         .fail_transaction(&id_fail, &String::from_str(&h.env, "source chain reorg"));
-    assert_eq!(h.client.get_transaction(&id_fail).status, TransactionStatus::Failed);
+    assert_eq!(
+        h.client.get_transaction(&id_fail).status,
+        TransactionStatus::Failed
+    );
 
     let id2 = tx_id(&h.env, "tx-2");
     let sender = String::from_str(&h.env, "GABC123SENDERADDR");
     let recipient = Address::generate(&h.env);
     let source_chain = String::from_str(&h.env, "ethereum");
     let dest_chain = String::from_str(&h.env, "stellar");
-    h.client
-        .register_transaction(&id2, &sender, &recipient, &500_i128, &source_chain, &dest_chain);
+    h.client.register_transaction(
+        &id2,
+        &sender,
+        &recipient,
+        &500_i128,
+        &source_chain,
+        &dest_chain,
+    );
     h.client.refund_transaction(&id2);
-    assert_eq!(h.client.get_transaction(&id2).status, TransactionStatus::Refunded);
+    assert_eq!(
+        h.client.get_transaction(&id2).status,
+        TransactionStatus::Refunded
+    );
 }
 
 #[test]
@@ -253,7 +278,10 @@ fn test_register_callback_is_idempotent() {
     // Second delivery of the same callback must be a no-op, not an error.
     h.client.register_callback(&id);
 
-    assert_eq!(h.client.get_transaction(&id).status, TransactionStatus::Completed);
+    assert_eq!(
+        h.client.get_transaction(&id).status,
+        TransactionStatus::Completed
+    );
 }
 
 // --- pause / admin ---
@@ -270,7 +298,10 @@ fn test_pause_blocks_relay_actions_but_admin_can_unpause() {
 
     h.client.unpause();
     h.client.register_callback(&id);
-    assert_eq!(h.client.get_transaction(&id).status, TransactionStatus::Completed);
+    assert_eq!(
+        h.client.get_transaction(&id).status,
+        TransactionStatus::Completed
+    );
 }
 
 #[test]
@@ -299,10 +330,17 @@ fn test_set_relay_signer_rotates_signer() {
 
 // --- upgrade / schema version guard ---
 
+// The contract's own compiled Wasm, used to exercise `upgrade()` with a
+// real, host-accepted code blob (the host rejects arbitrary bytes — it
+// requires a valid contract metadata section). `make check` builds this
+// before `cargo test` runs; see the Makefile.
+const SELF_WASM: &[u8] =
+    include_bytes!("../target/wasm32v1-none/release/pulsar_core_contract.wasm");
+
 #[test]
 fn test_upgrade_bumps_schema_version_and_rejects_replay() {
     let h = setup();
-    let new_wasm_hash = BytesN::<32>::random(&h.env);
+    let new_wasm_hash = h.env.deployer().upload_contract_wasm(SELF_WASM);
 
     assert_eq!(h.client.schema_version(), 1);
     h.client.upgrade(&new_wasm_hash, &1);
@@ -312,8 +350,16 @@ fn test_upgrade_bumps_schema_version_and_rejects_replay() {
     // fail now that the guard has advanced — this is the exact scenario
     // CLAUDE.md's security checklist flags: re-verify the guard can't be
     // bypassed by a second call using a stale expected version.
-    let res = h.client.try_upgrade(&new_wasm_hash, &1);
-    assert_eq!(res, Err(Ok(Error::SchemaVersionMismatch)));
+    //
+    // The first call above already swapped the contract's executable, so a
+    // second call through `h.client` would now dispatch into `MINIMAL_WASM`
+    // instead of re-checking our guard. Call the guarded function directly
+    // in the contract's storage context instead, which is what the guard
+    // itself actually needs to prove.
+    let res: Result<(), Error> = h.env.as_contract(&h.contract_id, || {
+        crate::admin::upgrade(&h.env, new_wasm_hash.clone(), 1)
+    });
+    assert_eq!(res, Err(Error::SchemaVersionMismatch));
 }
 
 #[test]

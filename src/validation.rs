@@ -7,8 +7,17 @@ use soroban_sdk::String;
 use crate::errors::Error;
 use crate::types::MAX_STRING_LEN;
 
+// No current entry point takes a Stellar address as a free-form string (the
+// only free-form string fields are foreign-chain values that can't be
+// strkeys — see `validate_string_len` below), so this validator has no
+// caller yet. It's kept, not deleted, because CLAUDE.md names SEP-23 strkey
+// validation as the established pattern any future entry point that *does*
+// take one must use.
+#[allow(dead_code)]
 const STRKEY_LEN: usize = 56;
+#[allow(dead_code)]
 const STRKEY_DECODED_LEN: usize = 35;
+#[allow(dead_code)]
 const STRKEY_VERSION_ED25519_PUBLIC_KEY: u8 = 6 << 3;
 
 /// Rejects empty strings and strings over `MAX_STRING_LEN` bytes. Applies to
@@ -34,6 +43,7 @@ pub fn validate_amount(amount: i128) -> Result<(), Error> {
 /// CRC16/XMODEM checksum. Used wherever a caller supplies a Stellar address as
 /// a free-form string rather than the SDK's native `Address` (which the host
 /// already validates during XDR decoding, making a second check redundant).
+#[allow(dead_code)]
 pub fn validate_strkey_ed25519_public_key(s: &String) -> Result<(), Error> {
     if s.len() as usize != STRKEY_LEN {
         return Err(Error::InvalidStrkey);
@@ -61,6 +71,7 @@ pub fn validate_strkey_ed25519_public_key(s: &String) -> Result<(), Error> {
     Ok(())
 }
 
+#[allow(dead_code)]
 fn base32_value(c: u8) -> Option<u8> {
     match c {
         b'A'..=b'Z' => Some(c - b'A'),
@@ -70,6 +81,7 @@ fn base32_value(c: u8) -> Option<u8> {
 }
 
 /// Decodes 56 base32 characters (280 bits, no padding) into 35 raw bytes.
+#[allow(dead_code)]
 fn decode_base32(input: &[u8; STRKEY_LEN]) -> Option<[u8; STRKEY_DECODED_LEN]> {
     let mut out = [0u8; STRKEY_DECODED_LEN];
     let mut bit_buffer: u64 = 0;
@@ -98,6 +110,7 @@ fn decode_base32(input: &[u8; STRKEY_LEN]) -> Option<[u8; STRKEY_DECODED_LEN]> {
 
 /// CRC16/XMODEM: poly 0x1021, init 0x0000, no reflect, no final xor — the
 /// checksum algorithm SEP-23 strkeys use.
+#[allow(dead_code)]
 fn crc16_xmodem(data: &[u8]) -> u16 {
     let mut crc: u16 = 0x0000;
     for &byte in data {

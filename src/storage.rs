@@ -117,8 +117,12 @@ pub fn assert_transition(from: &TransactionStatus, to: &TransactionStatus) -> Re
     use TransactionStatus::*;
     let allowed = matches!(
         (from, to),
-        (Pending, Confirmed) | (Pending, Failed) | (Pending, Refunded)
-            | (Confirmed, Completed) | (Confirmed, Failed) | (Confirmed, Refunded)
+        (Pending, Confirmed)
+            | (Pending, Failed)
+            | (Pending, Refunded)
+            | (Confirmed, Completed)
+            | (Confirmed, Failed)
+            | (Confirmed, Refunded)
     );
     if allowed {
         Ok(())

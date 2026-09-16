@@ -35,8 +35,9 @@ and grep for how they currently consume it — don't assume, check.
 
 - All entry points, types, storage helpers, and 10 events are implemented and marked
   complete in the README's own status table.
-- 68 tests cover happy paths, auth failures, invalid input, idempotency, state-machine
-  guards, and pause/upgrade.
+- 20 tests cover happy paths, auth failures, invalid input, idempotency, state-machine
+  guards, and pause/upgrade. Grow this suite as new entry points and edge cases land —
+  don't treat 20 as a ceiling.
 - `EVENTS.md` is **locked** — topic names, payload field types/order, and emission order
   are a cross-repo public API once Phase 2/3 subscribe to it. Additive/backward-compatible
   changes are a minor/patch bump; removal, rename, reorder, type change, or emission-order
@@ -66,9 +67,11 @@ and grep for how they currently consume it — don't assume, check.
 
 ### Working style
 
-- `make check` (fmt → clippy → test → wasm build) must be green before anything is
+- `make check` (fmt → wasm build → clippy → test) must be green before anything is
   "done" — this is the exact bar CI enforces per this repo's Makefile and
-  CONTRIBUTING.md.
+  CONTRIBUTING.md. The wasm build has to run before clippy/test, not after: the
+  upgrade-guard test embeds the contract's own compiled wasm via `include_bytes!`
+  (see CONTRIBUTING.md), so a stale or missing wasm artifact breaks both.
 - Any change to `Transaction` struct layout or `StorageKey` variants is a breaking change
   requiring a fresh deployment, not an in-place upgrade — flag this explicitly.
 - If a sibling repo needs a new entry point or event field, write it additive first; only
