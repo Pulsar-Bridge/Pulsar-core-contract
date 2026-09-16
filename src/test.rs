@@ -1,0 +1,326 @@
+#![cfg(test)]
+
+use soroban_sdk::{
+    testutils::{Address as _, BytesN as _},
+    Address, BytesN, Env, String,
+};
+
+use crate::{Error, PulsarCoreContract, PulsarCoreContractClient, TransactionStatus};
+
+struct Harness<'a> {
+    env: Env,
+    client: PulsarCoreContractClient<'a>,
+    admin: Address,
+    relay_signer: Address,
+}
+
+fn setup() -> Harness<'static> {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let contract_id = env.register(PulsarCoreContract, ());
+    let client = PulsarCoreContractClient::new(&env, &contract_id);
+
+    let admin = Address::generate(&env);
+    let relay_signer = Address::generate(&env);
+    client.initialize(&admin, &relay_signer);
+
+    Harness {
+        env,
+        client,
+        admin,
+        relay_signer,
+    }
+}
+
+fn tx_id(env: &Env, s: &str) -> String {
+    String::from_str(env, s)
+}
+
+fn register_default(h: &Harness) -> String {
+    let id = tx_id(&h.env, "tx-1");
+    let sender = String::from_str(&h.env, "GABC123SENDERADDR");
+    let recipient = Address::generate(&h.env);
+    let source_chain = String::from_str(&h.env, "ethereum");
+    let dest_chain = String::from_str(&h.env, "stellar");
+    h.client.register_transaction(
+        &id,
+        &sender,
+        &recipient,
+        &1_000_i128,
+        &source_chain,
+        &dest_chain,
+    );
+    id
+}
+
+// --- initialize ---
+
+#[test]
+fn test_initialize_sets_state() {
+    let h = setup();
+    assert_eq!(h.client.get_admin(), h.admin);
+    assert_eq!(h.client.get_relay_signer(), h.relay_signer);
+    assert!(!h.client.is_paused());
+    assert_eq!(h.client.schema_version(), 1);
+}
+
+#[test]
+fn test_initialize_twice_fails() {
+    let h = setup();
+    let res = h.client.try_initialize(&h.admin, &h.relay_signer);
+    assert_eq!(res, Err(Ok(Error::AlreadyInitialized)));
+}
+
+// --- register_transaction: happy path + validation + auth ---
+
+#[test]
+fn test_register_transaction_happy_path() {
+    let h = setup();
+    let id = register_default(&h);
+    let tx = h.client.get_transaction(&id);
+    assert_eq!(tx.status, TransactionStatus::Pending);
+    assert_eq!(tx.amount, 1_000_i128);
+}
+
+#[test]
+fn test_register_transaction_duplicate_id_fails() {
+    let h = setup();
+    let id = register_default(&h);
+    let sender = String::from_str(&h.env, "GABC123SENDERADDR");
+    let recipient = Address::generate(&h.env);
+    let source_chain = String::from_str(&h.env, "ethereum");
+    let dest_chain = String::from_str(&h.env, "stellar");
+    let res = h.client.try_register_transaction(
+        &id,
+        &sender,
+        &recipient,
+        &1_000_i128,
+        &source_chain,
+        &dest_chain,
+    );
+    assert_eq!(res, Err(Ok(Error::TransactionAlreadyExists)));
+}
+
+#[test]
+fn test_register_transaction_rejects_non_positive_amount() {
+    let h = setup();
+    let id = tx_id(&h.env, "tx-bad-amount");
+    let sender = String::from_str(&h.env, "GABC123SENDERADDR");
+    let recipient = Address::generate(&h.env);
+    let source_chain = String::from_str(&h.env, "ethereum");
+    let dest_chain = String::from_str(&h.env, "stellar");
+    let res = h
+        .client
+        .try_register_transaction(&id, &sender, &recipient, &0_i128, &source_chain, &dest_chain);
+    assert_eq!(res, Err(Ok(Error::InvalidInput)));
+}
+
+#[test]
+fn test_register_transaction_rejects_empty_string_field() {
+    let h = setup();
+    let id = tx_id(&h.env, "tx-empty-sender");
+    let sender = String::from_str(&h.env, "");
+    let recipient = Address::generate(&h.env);
+    let source_chain = String::from_str(&h.env, "ethereum");
+    let dest_chain = String::from_str(&h.env, "stellar");
+    let res = h.client.try_register_transaction(
+        &id,
+        &sender,
+        &recipient,
+        &1_000_i128,
+        &source_chain,
+        &dest_chain,
+    );
+    assert_eq!(res, Err(Ok(Error::InvalidInput)));
+}
+
+#[test]
+fn test_register_transaction_requires_relay_signer_auth() {
+    let h = setup();
+    h.env.set_auths(&[]);
+
+    let id = tx_id(&h.env, "tx-unauth");
+    let sender = String::from_str(&h.env, "GABC123SENDERADDR");
+    let recipient = Address::generate(&h.env);
+    let source_chain = String::from_str(&h.env, "ethereum");
+    let dest_chain = String::from_str(&h.env, "stellar");
+    let res = h.client.try_register_transaction(
+        &id,
+        &sender,
+        &recipient,
+        &1_000_i128,
+        &source_chain,
+        &dest_chain,
+    );
+    assert!(res.is_err());
+}
+
+#[test]
+fn test_register_transaction_fails_when_paused() {
+    let h = setup();
+    h.client.pause();
+
+    let id = tx_id(&h.env, "tx-paused");
+    let sender = String::from_str(&h.env, "GABC123SENDERADDR");
+    let recipient = Address::generate(&h.env);
+    let source_chain = String::from_str(&h.env, "ethereum");
+    let dest_chain = String::from_str(&h.env, "stellar");
+    let res = h.client.try_register_transaction(
+        &id,
+        &sender,
+        &recipient,
+        &1_000_i128,
+        &source_chain,
+        &dest_chain,
+    );
+    assert_eq!(res, Err(Ok(Error::ContractPaused)));
+}
+
+// --- state machine ---
+
+#[test]
+fn test_full_lifecycle_pending_to_completed() {
+    let h = setup();
+    let id = register_default(&h);
+
+    h.client.confirm_transaction(&id);
+    assert_eq!(h.client.get_transaction(&id).status, TransactionStatus::Confirmed);
+
+    h.client.register_callback(&id);
+    assert_eq!(h.client.get_transaction(&id).status, TransactionStatus::Completed);
+}
+
+#[test]
+fn test_cannot_complete_before_confirmed() {
+    let h = setup();
+    let id = register_default(&h);
+    let res = h.client.try_register_callback(&id);
+    assert_eq!(res, Err(Ok(Error::InvalidStateTransition)));
+}
+
+#[test]
+fn test_cannot_confirm_a_completed_transaction() {
+    let h = setup();
+    let id = register_default(&h);
+    h.client.confirm_transaction(&id);
+    h.client.register_callback(&id);
+
+    let res = h.client.try_confirm_transaction(&id);
+    assert_eq!(res, Err(Ok(Error::InvalidStateTransition)));
+}
+
+#[test]
+fn test_pending_can_be_failed_and_refunded_respectively() {
+    let h = setup();
+
+    let id_fail = register_default(&h);
+    h.client
+        .fail_transaction(&id_fail, &String::from_str(&h.env, "source chain reorg"));
+    assert_eq!(h.client.get_transaction(&id_fail).status, TransactionStatus::Failed);
+
+    let id2 = tx_id(&h.env, "tx-2");
+    let sender = String::from_str(&h.env, "GABC123SENDERADDR");
+    let recipient = Address::generate(&h.env);
+    let source_chain = String::from_str(&h.env, "ethereum");
+    let dest_chain = String::from_str(&h.env, "stellar");
+    h.client
+        .register_transaction(&id2, &sender, &recipient, &500_i128, &source_chain, &dest_chain);
+    h.client.refund_transaction(&id2);
+    assert_eq!(h.client.get_transaction(&id2).status, TransactionStatus::Refunded);
+}
+
+#[test]
+fn test_terminal_states_reject_further_transitions() {
+    let h = setup();
+    let id = register_default(&h);
+    h.client
+        .fail_transaction(&id, &String::from_str(&h.env, "bad deposit"));
+
+    let res = h.client.try_confirm_transaction(&id);
+    assert_eq!(res, Err(Ok(Error::InvalidStateTransition)));
+}
+
+// --- idempotency ---
+
+#[test]
+fn test_register_callback_is_idempotent() {
+    let h = setup();
+    let id = register_default(&h);
+    h.client.confirm_transaction(&id);
+
+    h.client.register_callback(&id);
+    // Second delivery of the same callback must be a no-op, not an error.
+    h.client.register_callback(&id);
+
+    assert_eq!(h.client.get_transaction(&id).status, TransactionStatus::Completed);
+}
+
+// --- pause / admin ---
+
+#[test]
+fn test_pause_blocks_relay_actions_but_admin_can_unpause() {
+    let h = setup();
+    let id = register_default(&h);
+    h.client.confirm_transaction(&id);
+
+    h.client.pause();
+    let res = h.client.try_register_callback(&id);
+    assert_eq!(res, Err(Ok(Error::ContractPaused)));
+
+    h.client.unpause();
+    h.client.register_callback(&id);
+    assert_eq!(h.client.get_transaction(&id).status, TransactionStatus::Completed);
+}
+
+#[test]
+fn test_pause_requires_admin_auth() {
+    let h = setup();
+    h.env.set_auths(&[]);
+    let res = h.client.try_pause();
+    assert!(res.is_err());
+}
+
+#[test]
+fn test_set_admin_rotates_admin() {
+    let h = setup();
+    let new_admin = Address::generate(&h.env);
+    h.client.set_admin(&new_admin);
+    assert_eq!(h.client.get_admin(), new_admin);
+}
+
+#[test]
+fn test_set_relay_signer_rotates_signer() {
+    let h = setup();
+    let new_signer = Address::generate(&h.env);
+    h.client.set_relay_signer(&new_signer);
+    assert_eq!(h.client.get_relay_signer(), new_signer);
+}
+
+// --- upgrade / schema version guard ---
+
+#[test]
+fn test_upgrade_bumps_schema_version_and_rejects_replay() {
+    let h = setup();
+    let new_wasm_hash = BytesN::<32>::random(&h.env);
+
+    assert_eq!(h.client.schema_version(), 1);
+    h.client.upgrade(&new_wasm_hash, &1);
+    assert_eq!(h.client.schema_version(), 2);
+
+    // Replaying the upgrade call with the same expected_schema_version must
+    // fail now that the guard has advanced — this is the exact scenario
+    // CLAUDE.md's security checklist flags: re-verify the guard can't be
+    // bypassed by a second call using a stale expected version.
+    let res = h.client.try_upgrade(&new_wasm_hash, &1);
+    assert_eq!(res, Err(Ok(Error::SchemaVersionMismatch)));
+}
+
+#[test]
+fn test_upgrade_requires_admin_auth() {
+    let h = setup();
+    h.env.set_auths(&[]);
+    let new_wasm_hash = BytesN::<32>::random(&h.env);
+    let res = h.client.try_upgrade(&new_wasm_hash, &1);
+    assert!(res.is_err());
+}

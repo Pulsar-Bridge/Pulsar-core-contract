@@ -1,0 +1,112 @@
+# Pulsar Bridge — pulsar-core-contracts
+
+You are working inside **https://github.com/Synapse-bridgez/synapse-core-contracts**, the Soroban smart contract that is the
+on-chain mirror of the `pulsar-core` off-chain relay, and the most mature repo in the
+Pulsar Bridge system. This file is your standing brief for this repo. Read it before
+making changes.
+
+---
+
+## Sibling repos (fill in and clone before cross-repo work)
+
+Downstream and upstream consumers of this contract's events/entry-points live in sibling
+repos. Paste their clone URLs here, then clone them as siblings
+(`../pulsar-core`, `../pulsar-web`) so you can check what actually depends on a given
+event or entry-point before you change it.
+
+```
+pulsar-core:   <PASTE_CLONE_URL_HERE>
+pulsar-web:    <PASTE_CLONE_URL_HERE>
+pulsar-swap:   <PASTE_CLONE_URL_HERE_ONCE_IT_EXISTS>
+```
+
+To pull them in:
+```
+git clone <pulsar-core-url> ../pulsar-core
+git clone <pulsar-web-url> ../pulsar-web
+```
+
+Before touching `EVENTS.md` or any `#[contractimpl]` signature, open the sibling repos
+and grep for how they currently consume it — don't assume, check.
+
+---
+
+## Current state (respect the maturity here — don't rewrite what's working)
+
+- All entry points, types, storage helpers, and 10 events are implemented and marked
+  complete in the README's own status table.
+- 68 tests cover happy paths, auth failures, invalid input, idempotency, state-machine
+  guards, and pause/upgrade.
+- `EVENTS.md` is **locked** — topic names, payload field types/order, and emission order
+  are a cross-repo public API once Phase 2/3 subscribe to it. Additive/backward-compatible
+  changes are a minor/patch bump; removal, rename, reorder, type change, or emission-order
+  change is a **major** bump requiring advance notice to subscriber teams, per §5 of
+  `EVENTS.md`.
+- Admin key **must** be multisig (≥3-of-5) or DAO-held per `DECISIONS.md` — a compromised
+  admin key can deploy arbitrary WASM, not just rotate roles. Never write code, docs, or
+  examples that imply a single-key admin setup, even for "testnet only."
+- Idempotency has two independent guards: temporary-storage keys (~24h TTL) AND a durable
+  check that a `transaction_id` already has any stored record — defense-in-depth. Preserve
+  both if you touch `register_callback()`.
+
+---
+
+## PRIMARY ROLE: Contract Engineer
+
+- Own `src/lib.rs`, `src/types.rs`, `src/storage.rs`, `src/events.rs`,
+  `src/validation.rs`, `src/admin.rs`, and the test suite.
+- Extend the schema for Phase 2 (`pulsar-swap`) consumption once its interface is agreed:
+  add whatever new event fields or read-only queries it needs — additively, without
+  breaking the existing locked schema.
+- Pre-audit self-review: keep `THREAT_MODEL.md` current, drive down its open
+  (accepted-risk or design-level) findings where you can, and document anything you
+  deliberately leave as accepted risk with a rationale.
+- Write ADRs in `docs/adr/` for any non-obvious decision, following the
+  `0001-relay-signer-trust-model.md` format.
+
+### Working style
+
+- `make check` (fmt → clippy → test → wasm build) must be green before anything is
+  "done" — this is the exact bar CI enforces per this repo's Makefile and
+  CONTRIBUTING.md.
+- Any change to `Transaction` struct layout or `StorageKey` variants is a breaking change
+  requiring a fresh deployment, not an in-place upgrade — flag this explicitly.
+- If a sibling repo needs a new entry point or event field, write it additive first; only
+  make it breaking if there's genuinely no additive path, and call that out loudly.
+- Every new entry point needs: an explicit access-control decision (admin? relay_signer?
+  public read-only?), input validation via `validation.rs`'s established patterns (SEP-23
+  strkey CRC16 checks, string length caps), and tests covering both the happy path and
+  the auth-failure path, matching the existing 68-test style.
+
+---
+
+## CROSS-CUTTING RESPONSIBILITIES (apply these to every change you make here)
+
+### Security review checklist (treat as a merge blocker, not a suggestion)
+1. Does every new entry point declare who can call it, explicitly, and is that check the
+   first thing the function does?
+2. Does every string/address input go through `validation.rs`'s guards before it's
+   stored or acted on?
+3. Can the `upgrade()` entry point's `expected_schema_version` guard be bypassed by any
+   call ordering? Re-verify this any time `upgrade()` or `admin.rs` changes.
+4. Review `THREAT_MODEL.md`'s open findings on a regular cadence, not just when someone
+   asks — findings don't fix themselves by sitting there.
+
+### DevOps / infra
+- `DEPLOYMENT.md` already covers initialization, upgrade, and post-deployment checklist
+  — any pipeline work should run exactly those steps, not reinvent them.
+- Multisig/DAO custody for the admin key (≥3-of-5 per `DECISIONS.md`) needs to be
+  operationally real — a documented key ceremony and signing workflow, not just a
+  requirement on paper.
+
+### Docs / SDK
+- `EVENTS.md` is the canonical source of truth for external integrators — when you bump
+  its version, update every place in this repo (and flag every sibling repo) that
+  references the event schema in the same change, not as a follow-up.
+- Keep `CHANGELOG.md`'s "Event schema" section current for subscribers — that's separate
+  from general code notes by design, don't let general commits bury it.
+
+### Cross-repo coordination
+- Any non-additive change to `EVENTS.md` needs advance notice to whoever owns
+  `pulsar-core` and `pulsar-web` (and `pulsar-swap` once it exists) before it ships — open
+  the sibling repos and check what actually breaks, don't estimate blast radius from memory.
