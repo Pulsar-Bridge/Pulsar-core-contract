@@ -4,7 +4,7 @@ Soroban smart contract powering Pulsar Bridge — the on-chain source of truth f
 ## Status
 
 All entry points below are implemented, tested, and pass `make check`
-(fmt, clippy `-D warnings`, the 28-test suite, and a `wasm32v1-none`
+(fmt, clippy `-D warnings`, the 34-test suite, and a `wasm32v1-none`
 release build). Not yet independently audited — see `THREAT_MODEL.md` for
 open findings.
 

@@ -230,6 +230,61 @@ fn test_register_transaction_fails_when_paused() {
     assert_eq!(res, Err(Ok(Error::ContractPaused)));
 }
 
+#[test]
+fn test_confirm_transaction_requires_relay_signer_auth() {
+    let h = setup();
+    let id = register_default(&h);
+    h.env.set_auths(&[]);
+    let res = h.client.try_confirm_transaction(&id);
+    assert!(res.is_err());
+    assert_eq!(
+        h.client.get_transaction(&id).status,
+        TransactionStatus::Pending
+    );
+}
+
+#[test]
+fn test_register_callback_requires_relay_signer_auth() {
+    let h = setup();
+    let id = register_default(&h);
+    h.client.confirm_transaction(&id);
+    h.env.set_auths(&[]);
+    let res = h.client.try_register_callback(&id);
+    assert!(res.is_err());
+    assert_eq!(
+        h.client.get_transaction(&id).status,
+        TransactionStatus::Confirmed
+    );
+}
+
+#[test]
+fn test_fail_transaction_requires_relay_signer_auth() {
+    let h = setup();
+    let id = register_default(&h);
+    h.env.set_auths(&[]);
+    let res = h
+        .client
+        .try_fail_transaction(&id, &String::from_str(&h.env, "bad deposit"));
+    assert!(res.is_err());
+    assert_eq!(
+        h.client.get_transaction(&id).status,
+        TransactionStatus::Pending
+    );
+}
+
+#[test]
+fn test_refund_transaction_requires_relay_signer_auth() {
+    let h = setup();
+    let id = register_default(&h);
+    h.env.set_auths(&[]);
+    let res = h.client.try_refund_transaction(&id);
+    assert!(res.is_err());
+    assert_eq!(
+        h.client.get_transaction(&id).status,
+        TransactionStatus::Pending
+    );
+}
+
 // --- state machine ---
 
 #[test]
@@ -359,6 +414,16 @@ fn test_pause_requires_admin_auth() {
 }
 
 #[test]
+fn test_unpause_requires_admin_auth() {
+    let h = setup();
+    h.client.pause();
+    h.env.set_auths(&[]);
+    let res = h.client.try_unpause();
+    assert!(res.is_err());
+    assert!(h.client.is_paused());
+}
+
+#[test]
 fn test_propose_and_accept_admin_transfer() {
     let h = setup();
     let new_admin = Address::generate(&h.env);
@@ -412,6 +477,16 @@ fn test_set_relay_signer_rotates_signer() {
     let new_signer = Address::generate(&h.env);
     h.client.set_relay_signer(&new_signer);
     assert_eq!(h.client.get_relay_signer(), new_signer);
+}
+
+#[test]
+fn test_set_relay_signer_requires_admin_auth() {
+    let h = setup();
+    let new_signer = Address::generate(&h.env);
+    h.env.set_auths(&[]);
+    let res = h.client.try_set_relay_signer(&new_signer);
+    assert!(res.is_err());
+    assert_eq!(h.client.get_relay_signer(), h.relay_signer);
 }
 
 // --- upgrade / schema version guard ---

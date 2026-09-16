@@ -17,10 +17,11 @@ event-schema change. Any entry there should correspond to a version note in
 - Admin entry points: `pause`/`unpause`, `propose_admin`/`accept_admin`
   (two-step admin transfer), `set_relay_signer`, `upgrade`
   (schema-version-guarded WASM hot-swap).
-- 28-test suite covering happy paths, auth failures, invalid input,
-  idempotency, state-machine guards, pause/upgrade, the two-step admin
-  transfer, an EVENTS.md-conformance check, and the SEP-23 strkey validator
-  against `stellar-strkey`'s own test vectors.
+- 34-test suite covering happy paths, auth failures (an explicit
+  auth-failure test for every relay-signer- and admin-gated entry point),
+  invalid input, idempotency, state-machine guards, pause/upgrade, the
+  two-step admin transfer, an EVENTS.md-conformance check, and the SEP-23
+  strkey validator against `stellar-strkey`'s own test vectors.
 - `EVENTS.md`, `DECISIONS.md`, `THREAT_MODEL.md`, `DEPLOYMENT.md`, and
   `docs/adr/0001-relay-signer-trust-model.md`.
 - `Makefile` with a `check` target (`fmt` -> `wasm build` -> `clippy` ->
