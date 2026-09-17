@@ -136,7 +136,7 @@ mod tests {
     //! future entry point comes to depend on it.
     use soroban_sdk::{Env, String as SorobanString};
 
-    use super::{validate_string_len, validate_strkey_ed25519_public_key};
+    use super::{validate_amount, validate_string_len, validate_strkey_ed25519_public_key};
     use crate::types::MAX_STRING_LEN;
 
     // From stellar-strkey's tests/tests.rs::test_valid_public_keys /
@@ -161,6 +161,16 @@ mod tests {
         let buf = [b'a'; MAX_STRING_LEN as usize + 1];
         let s = core::str::from_utf8(&buf).unwrap();
         assert!(validate_string_len(&SorobanString::from_str(&env, s)).is_err());
+    }
+
+    #[test]
+    fn validate_amount_rejects_negative() {
+        assert!(validate_amount(-1).is_err());
+    }
+
+    #[test]
+    fn validate_amount_accepts_positive() {
+        assert!(validate_amount(1).is_ok());
     }
 
     #[test]
