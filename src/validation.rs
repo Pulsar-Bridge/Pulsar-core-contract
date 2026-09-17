@@ -134,9 +134,12 @@ mod tests {
     //! CRC16 implementation. Test it directly against vectors from
     //! `stellar-strkey`'s own test suite so it's known-correct before any
     //! future entry point comes to depend on it.
+    use proptest::prelude::*;
     use soroban_sdk::{Env, String as SorobanString};
 
-    use super::{validate_amount, validate_string_len, validate_strkey_ed25519_public_key};
+    use super::{
+        validate_amount, validate_string_len, validate_strkey_ed25519_public_key, STRKEY_LEN,
+    };
     use crate::types::MAX_STRING_LEN;
 
     // From stellar-strkey's tests/tests.rs::test_valid_public_keys /
@@ -171,6 +174,20 @@ mod tests {
     #[test]
     fn validate_amount_accepts_positive() {
         assert!(validate_amount(1).is_ok());
+    }
+
+    proptest! {
+        #[test]
+        fn rejects_any_wrong_length_strkey(s in "[A-Z2-7]{0,120}") {
+            // STRKEY_LEN is always exactly 56; any other length must be
+            // rejected regardless of content, before base32/checksum logic
+            // ever runs.
+            prop_assume!(s.len() != STRKEY_LEN);
+            let env = Env::default();
+            prop_assert!(
+                validate_strkey_ed25519_public_key(&SorobanString::from_str(&env, &s)).is_err()
+            );
+        }
     }
 
     #[test]
