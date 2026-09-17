@@ -84,6 +84,24 @@ fn test_initialize_twice_fails() {
 }
 
 #[test]
+fn test_register_transaction_before_initialize_fails() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let contract_id = env.register(PulsarCoreContract, ());
+    let client = PulsarCoreContractClient::new(&env, &contract_id);
+
+    let res = client.try_register_transaction(
+        &String::from_str(&env, "tx-1"),
+        &String::from_str(&env, "GABC123SENDERADDR"),
+        &Address::generate(&env),
+        &1_000_i128,
+        &String::from_str(&env, "ethereum"),
+        &String::from_str(&env, "stellar"),
+    );
+    assert_eq!(res, Err(Ok(Error::NotInitialized)));
+}
+
+#[test]
 fn test_get_admin_before_initialize_fails() {
     let env = Env::default();
     let contract_id = env.register(PulsarCoreContract, ());
