@@ -55,6 +55,7 @@ exists) before it ships.
 - [`EVENTS.md`](./EVENTS.md) — locked event schema for downstream consumers.
 - [`DECISIONS.md`](./DECISIONS.md) — standing design decisions.
 - [`THREAT_MODEL.md`](./THREAT_MODEL.md) — security findings, open and accepted-risk.
+- [`SECURITY.md`](./SECURITY.md) — how to report a new vulnerability.
 - [`DEPLOYMENT.md`](./DEPLOYMENT.md) — initialize, upgrade, post-deployment checklist.
 - [`CONTRIBUTING.md`](./CONTRIBUTING.md) — dev workflow and the `make check` bar.
 - [`CHANGELOG.md`](./CHANGELOG.md) — notable changes, including the event-schema history.
