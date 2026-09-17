@@ -91,7 +91,7 @@ pub fn propose_upgrade(
 ) -> Result<(), Error> {
     require_admin(env)?;
 
-    let current_version = storage::get_schema_version(env);
+    let current_version = storage::get_schema_version(env)?;
     if current_version != expected_schema_version {
         return Err(Error::SchemaVersionMismatch);
     }
@@ -133,7 +133,7 @@ pub fn execute_upgrade(env: &Env) -> Result<(), Error> {
         return Err(Error::UpgradeTimelockNotElapsed);
     }
 
-    let current_version = storage::get_schema_version(env);
+    let current_version = storage::get_schema_version(env)?;
     if current_version != pending.expected_schema_version {
         return Err(Error::SchemaVersionMismatch);
     }

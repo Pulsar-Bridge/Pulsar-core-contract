@@ -97,11 +97,11 @@ pub fn require_not_paused(env: &Env) -> Result<(), Error> {
     Ok(())
 }
 
-pub fn get_schema_version(env: &Env) -> u32 {
+pub fn get_schema_version(env: &Env) -> Result<u32, Error> {
     env.storage()
         .instance()
         .get(&StorageKey::SchemaVersion)
-        .unwrap_or(crate::types::SCHEMA_VERSION)
+        .ok_or(Error::NotInitialized)
 }
 
 pub fn set_schema_version(env: &Env, version: u32) {

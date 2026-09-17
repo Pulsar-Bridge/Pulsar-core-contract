@@ -175,7 +175,7 @@ impl PulsarCoreContract {
         storage::is_paused(&env)
     }
 
-    pub fn schema_version(env: Env) -> u32 {
+    pub fn schema_version(env: Env) -> Result<u32, Error> {
         storage::get_schema_version(&env)
     }
 
