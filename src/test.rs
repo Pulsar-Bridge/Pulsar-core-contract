@@ -604,6 +604,17 @@ fn test_terminal_states_reject_further_transitions() {
 }
 
 #[test]
+fn test_failed_transaction_rejects_callback_completion() {
+    let h = setup();
+    let id = register_default(&h);
+    h.client
+        .fail_transaction(&id, &String::from_str(&h.env, "bad deposit"));
+
+    let res = h.client.try_register_callback(&id);
+    assert_eq!(res, Err(Ok(Error::InvalidStateTransition)));
+}
+
+#[test]
 fn test_failed_transaction_rejects_refund() {
     let h = setup();
     let id = register_default(&h);
