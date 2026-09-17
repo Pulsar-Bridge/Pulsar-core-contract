@@ -117,6 +117,27 @@ fn test_register_transaction_happy_path() {
 }
 
 #[test]
+fn test_initialize_emits_init_event() {
+    use soroban_sdk::{testutils::Events as _, Event as _};
+
+    let env = Env::default();
+    env.mock_all_auths();
+    let contract_id = env.register(PulsarCoreContract, ());
+    let client = PulsarCoreContractClient::new(&env, &contract_id);
+    let admin = Address::generate(&env);
+    let relay_signer = Address::generate(&env);
+
+    client.initialize(&admin, &relay_signer);
+
+    let expected = crate::events::Initialized {
+        admin,
+        relay_signer,
+        schema_version: 1,
+    };
+    assert_eq!(env.events().all(), [expected.to_xdr(&env, &contract_id)]);
+}
+
+#[test]
 fn test_register_transaction_emits_tx_reg_event() {
     // EVENTS.md is a cross-repo contract: prove at least one event actually
     // matches what it documents (topics, field names/types, and that the
