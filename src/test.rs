@@ -507,6 +507,20 @@ fn test_fail_transaction_rejects_empty_reason() {
     );
 }
 
+#[test]
+fn test_fail_transaction_rejects_oversized_reason() {
+    let h = setup();
+    let id = register_default(&h);
+    let res = h
+        .client
+        .try_fail_transaction(&id, &oversized_string(&h.env));
+    assert_eq!(res, Err(Ok(Error::InvalidInput)));
+    assert_eq!(
+        h.client.get_transaction(&id).status,
+        TransactionStatus::Pending
+    );
+}
+
 // --- state machine ---
 
 #[test]
