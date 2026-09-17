@@ -1133,6 +1133,16 @@ fn test_accept_admin_fails_without_pending_admin() {
 }
 
 #[test]
+fn test_get_pending_admin_fails_without_pending_admin() {
+    // Mirrors test_execute_upgrade_fails_without_pending_upgrade: the
+    // query itself, not just the entry point that consumes it, must
+    // fail closed when no propose_admin() call has ever happened.
+    let h = setup();
+    let res = h.client.try_get_pending_admin();
+    assert_eq!(res, Err(Ok(Error::NoPendingAdmin)));
+}
+
+#[test]
 fn test_set_relay_signer_succeeds_while_paused() {
     // THREAT_MODEL.md's F2 mitigation relies on set_relay_signer() being
     // usable to revoke a compromised relay signer even while the contract
