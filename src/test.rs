@@ -329,6 +329,20 @@ fn test_refund_transaction_requires_relay_signer_auth() {
     );
 }
 
+#[test]
+fn test_refund_transaction_fails_when_paused() {
+    let h = setup();
+    let id = register_default(&h);
+    h.client.pause();
+
+    let res = h.client.try_refund_transaction(&id);
+    assert_eq!(res, Err(Ok(Error::ContractPaused)));
+    assert_eq!(
+        h.client.get_transaction(&id).status,
+        TransactionStatus::Pending
+    );
+}
+
 // --- state machine ---
 
 #[test]
