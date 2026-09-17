@@ -17,11 +17,20 @@ event-schema change. Any entry there should correspond to a version note in
 - Admin entry points: `pause`/`unpause`, `propose_admin`/`accept_admin`
   (two-step admin transfer), `set_relay_signer`, `propose_upgrade`/
   `execute_upgrade` (schema-version-guarded, timelocked WASM hot-swap).
-- 38-test suite covering happy paths, auth failures (an explicit
+- 86-test suite covering happy paths, auth failures (an explicit
   auth-failure test for every relay-signer- and admin-gated entry point),
   invalid input, idempotency, state-machine guards, pause/upgrade, the
   two-step admin transfer, an EVENTS.md-conformance check, and the SEP-23
-  strkey validator against `stellar-strkey`'s own test vectors.
+  strkey validator against `stellar-strkey`'s own test vectors. Grown from
+  the original 38 by closing coverage gaps: a pause-guard test for every
+  relay-signer-gated entry point (previously only 2 of 5 had one), the
+  full terminal-state transition matrix out of `Completed`/`Failed`/
+  `Refunded` (previously 2 of 9 combinations), length-boundary tests for
+  every free-form string field including `fail_transaction`'s `reason`
+  (previously only `sender`'s empty case), overwrite-behavior tests for
+  `propose_admin`/`propose_upgrade`, EVENTS.md-conformance tests for the
+  11 events that only had indirect coverage, and NotInitialized tests for
+  entry points called before `initialize()`.
 - `EVENTS.md`, `DECISIONS.md`, `THREAT_MODEL.md`, `DEPLOYMENT.md`, and
   `docs/adr/0001-relay-signer-trust-model.md`.
 - `Makefile` with a `check` target (`fmt` -> `wasm build` -> `clippy` ->
