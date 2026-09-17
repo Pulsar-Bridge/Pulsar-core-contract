@@ -1068,6 +1068,27 @@ fn test_propose_upgrade_requires_admin_auth() {
 }
 
 #[test]
+fn test_propose_upgrade_emits_upgrade_prop_event() {
+    use soroban_sdk::{testutils::Events as _, Event as _};
+
+    let h = setup();
+    let new_wasm_hash = BytesN::<32>::random(&h.env);
+    let earliest_ledger = h.env.ledger().sequence() + crate::storage::UPGRADE_TIMELOCK_LEDGERS;
+
+    h.client.propose_upgrade(&new_wasm_hash, &1);
+
+    let expected = crate::events::UpgradeProposed {
+        new_wasm_hash,
+        expected_schema_version: 1,
+        earliest_ledger,
+    };
+    assert_eq!(
+        h.env.events().all(),
+        [expected.to_xdr(&h.env, &h.contract_id)]
+    );
+}
+
+#[test]
 fn test_execute_upgrade_requires_admin_auth() {
     let h = setup();
     let new_wasm_hash = h.env.deployer().upload_contract_wasm(SELF_WASM);
