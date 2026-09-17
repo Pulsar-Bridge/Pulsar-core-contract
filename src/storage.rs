@@ -205,3 +205,44 @@ pub fn check_and_mark_callback_seen(
         .extend_ttl(&key, CALLBACK_SEEN_TTL, CALLBACK_SEEN_TTL);
     false
 }
+
+#[cfg(test)]
+mod tests {
+    //! `assert_transition` is the single guard every status change in the
+    //! contract goes through. The integration tests in `src/test.rs` cover
+    //! it through entry points, but the public API can't reach every
+    //! ordered (from, to) pair directly (no entry point ever targets
+    //! `Pending`, for instance, so a `Pending -> Pending` self-transition
+    //! is untestable at that level). Exhaustively check the full 5x5 matrix
+    //! here instead, so this core invariant is proven completely rather
+    //! than only to the extent the current entry points happen to reach.
+
+    use super::assert_transition;
+    use crate::types::TransactionStatus::{self, *};
+
+    const ALL_STATUSES: [TransactionStatus; 5] = [Pending, Confirmed, Completed, Failed, Refunded];
+
+    const ALLOWED: [(TransactionStatus, TransactionStatus); 6] = [
+        (Pending, Confirmed),
+        (Pending, Failed),
+        (Pending, Refunded),
+        (Confirmed, Completed),
+        (Confirmed, Failed),
+        (Confirmed, Refunded),
+    ];
+
+    #[test]
+    fn matches_the_documented_transition_table_exhaustively() {
+        for from in ALL_STATUSES.iter() {
+            for to in ALL_STATUSES.iter() {
+                let expected_ok = ALLOWED.contains(&(from.clone(), to.clone()));
+                let result = assert_transition(from, to);
+                assert_eq!(
+                    result.is_ok(),
+                    expected_ok,
+                    "assert_transition({from:?}, {to:?}) was {result:?}, expected is_ok() == {expected_ok}"
+                );
+            }
+        }
+    }
+}
