@@ -562,6 +562,24 @@ fn test_accept_admin_requires_proposed_admin_auth() {
 }
 
 #[test]
+fn test_propose_admin_overwrites_pending_proposal() {
+    // accept_admin() has no address argument — it authorizes whichever
+    // address is currently stored as pending, so a second propose_admin()
+    // call must fully replace the first candidate, not add to it. Accepting
+    // afterward must rotate to the second candidate, never the first.
+    let h = setup();
+    let first_candidate = Address::generate(&h.env);
+    let second_candidate = Address::generate(&h.env);
+
+    h.client.propose_admin(&first_candidate);
+    h.client.propose_admin(&second_candidate);
+    assert_eq!(h.client.get_pending_admin(), second_candidate);
+
+    h.client.accept_admin();
+    assert_eq!(h.client.get_admin(), second_candidate);
+}
+
+#[test]
 fn test_accept_admin_fails_without_pending_admin() {
     let h = setup();
     let res = h.client.try_accept_admin();
