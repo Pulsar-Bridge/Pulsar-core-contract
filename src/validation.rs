@@ -170,6 +170,24 @@ mod tests {
         assert!(validate_string_len(&SorobanString::from_str(&env, s)).is_err());
     }
 
+    proptest! {
+        #[test]
+        fn validate_string_len_accepts_any_length_in_range(len in 1u32..=MAX_STRING_LEN) {
+            let env = Env::default();
+            let s = "a".repeat(len as usize);
+            prop_assert!(validate_string_len(&SorobanString::from_str(&env, &s)).is_ok());
+        }
+
+        #[test]
+        fn validate_string_len_rejects_any_length_over_max(
+            len in (MAX_STRING_LEN + 1)..=(MAX_STRING_LEN + 2_000)
+        ) {
+            let env = Env::default();
+            let s = "a".repeat(len as usize);
+            prop_assert!(validate_string_len(&SorobanString::from_str(&env, &s)).is_err());
+        }
+    }
+
     #[test]
     fn validate_amount_rejects_negative() {
         assert!(validate_amount(-1).is_err());
