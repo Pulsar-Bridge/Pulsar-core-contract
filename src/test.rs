@@ -953,6 +953,26 @@ fn test_propose_admin_requires_admin_auth() {
 }
 
 #[test]
+fn test_accept_admin_emits_admin_upd_event() {
+    use soroban_sdk::{testutils::Events as _, Event as _};
+
+    let h = setup();
+    let new_admin = Address::generate(&h.env);
+    h.client.propose_admin(&new_admin);
+
+    h.client.accept_admin();
+
+    let expected = crate::events::AdminUpdated {
+        old_admin: h.admin.clone(),
+        new_admin,
+    };
+    assert_eq!(
+        h.env.events().all(),
+        [expected.to_xdr(&h.env, &h.contract_id)]
+    );
+}
+
+#[test]
 fn test_accept_admin_requires_proposed_admin_auth() {
     // accept_admin must be authorized by the *proposed* admin, not the
     // current one — otherwise the current admin could complete the
