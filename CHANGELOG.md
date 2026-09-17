@@ -17,7 +17,7 @@ event-schema change. Any entry there should correspond to a version note in
 - Admin entry points: `pause`/`unpause`, `propose_admin`/`accept_admin`
   (two-step admin transfer), `set_relay_signer`, `propose_upgrade`/
   `execute_upgrade` (schema-version-guarded, timelocked WASM hot-swap).
-- 86-test suite covering happy paths, auth failures (an explicit
+- 95-test suite covering happy paths, auth failures (an explicit
   auth-failure test for every relay-signer- and admin-gated entry point),
   invalid input, idempotency, state-machine guards, pause/upgrade, the
   two-step admin transfer, an EVENTS.md-conformance check, and the SEP-23
@@ -38,6 +38,44 @@ event-schema change. Any entry there should correspond to a version note in
 - `.github/workflows/ci.yml` running `make check` on every push and pull
   request — `CLAUDE.md` and `CONTRIBUTING.md` both described this as the bar
   "CI enforces," but no CI was actually configured until now.
+- `LICENSE` (Apache-2.0 full text) — `Cargo.toml` had declared the SPDX
+  identifier since the initial commit, but the actual license text was
+  never added.
+- `SECURITY.md`, describing how to privately report a vulnerability via
+  GitHub Security Advisories rather than a public issue.
+- `.github/dependabot.yml` for `cargo` and `github-actions` dependency
+  updates, and a `.github/workflows/ci.yml` `audit` job running
+  `rustsec/audit-check` against the RustSec advisory database on every
+  push/PR, independent of the `make check` correctness gate. Running it
+  found and closed `THREAT_MODEL.md`'s new F9 (an unmaintained transitive
+  dependency, `paste` — no CVE, compile-time-only, no runtime exposure;
+  tracked with rationale rather than silently ignored).
+- `.github/PULL_REQUEST_TEMPLATE.md`, mirroring `CONTRIBUTING.md`'s
+  `make check` / access-control / `EVENTS.md` / `THREAT_MODEL.md`
+  checklist directly in front of PR authors.
+- `.editorconfig` matching `rustfmt`'s defaults.
+- `#![deny(unsafe_code)]` at the crate root (`src/lib.rs`) — no `unsafe`
+  exists today; this guards against it being introduced silently later.
+  `#![forbid]` doesn't work here: `soroban-sdk`'s `#[contractimpl]` macro
+  expands to code carrying its own internal `#[allow(unsafe_code)]`, which
+  `forbid` can't be overridden by even in generated code.
+- `Cargo.toml`: `readme`, `keywords`, and `categories` fields.
+- An exhaustive truth-table unit test for `assert_transition`
+  (`src/storage.rs`), covering all 25 ordered `TransactionStatus` pairs
+  directly — including pairs no entry point's public API can reach (no
+  entry point ever transitions a transaction back to `Pending`, for
+  example).
+- Three `proptest`-based property tests for the hand-rolled SEP-23 strkey
+  base32/CRC16 validator (`validation.rs`): any wrong-length input is
+  rejected, any correct-length input containing one invalid-alphabet byte
+  is rejected, and any correctly-encoded ed25519 strkey across the full
+  random key space is accepted — the previous coverage was four fixed
+  vectors only.
+- Tests proving the admin-only recovery actions (`set_relay_signer`,
+  `propose_admin`/`accept_admin`, `propose_upgrade`/`execute_upgrade`)
+  all still work while the contract is paused, per `THREAT_MODEL.md`'s F2
+  mitigation — `pause()` only halts relay-signer actions, and this was
+  previously asserted only in the ADRs/threat model prose, not in tests.
 
 ### Changed
 - Replaced the single-step `set_admin(new_admin)` with a two-step
