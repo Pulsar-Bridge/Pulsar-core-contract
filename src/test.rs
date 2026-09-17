@@ -39,6 +39,15 @@ fn tx_id(env: &Env, s: &str) -> String {
     String::from_str(env, s)
 }
 
+/// A string one byte over `MAX_STRING_LEN`, for exercising
+/// `validation::validate_string_len`'s length guard at the integration
+/// level (as opposed to `validation.rs`'s own direct unit tests).
+fn oversized_string(env: &Env) -> String {
+    let buf = [b'a'; crate::types::MAX_STRING_LEN as usize + 1];
+    let s = core::str::from_utf8(&buf).unwrap();
+    String::from_str(env, s)
+}
+
 fn register_default(h: &Harness) -> String {
     let id = tx_id(&h.env, "tx-1");
     let sender = String::from_str(&h.env, "GABC123SENDERADDR");
@@ -196,6 +205,25 @@ fn test_register_transaction_rejects_empty_string_field() {
     let h = setup();
     let id = tx_id(&h.env, "tx-empty-sender");
     let sender = String::from_str(&h.env, "");
+    let recipient = Address::generate(&h.env);
+    let source_chain = String::from_str(&h.env, "ethereum");
+    let dest_chain = String::from_str(&h.env, "stellar");
+    let res = h.client.try_register_transaction(
+        &id,
+        &sender,
+        &recipient,
+        &1_000_i128,
+        &source_chain,
+        &dest_chain,
+    );
+    assert_eq!(res, Err(Ok(Error::InvalidInput)));
+}
+
+#[test]
+fn test_register_transaction_rejects_oversized_transaction_id() {
+    let h = setup();
+    let id = oversized_string(&h.env);
+    let sender = String::from_str(&h.env, "GABC123SENDERADDR");
     let recipient = Address::generate(&h.env);
     let source_chain = String::from_str(&h.env, "ethereum");
     let dest_chain = String::from_str(&h.env, "stellar");
