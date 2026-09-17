@@ -40,6 +40,19 @@ make clippy     # cargo clippy --all-targets -- -D warnings
 make test       # cargo test (depends on `wasm`)
 ```
 
+## Dependency vulnerability scanning
+
+CI runs a separate `audit` job (`.github/workflows/ci.yml`) against the
+[RustSec advisory database](https://rustsec.org/) on every push and pull
+request, using `rustsec/audit-check`. It's independent of `make check` — a
+newly disclosed advisory in a dependency shouldn't block on, or be confused
+with, the build/lint/test correctness gate. To run the same check locally:
+
+```sh
+cargo install cargo-audit --locked   # one-time
+cargo audit
+```
+
 ## Every new entry point needs
 
 Per `CLAUDE.md`'s working style:
