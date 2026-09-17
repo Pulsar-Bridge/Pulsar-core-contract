@@ -807,6 +807,16 @@ fn test_failed_transaction_rejects_a_second_fail() {
 }
 
 #[test]
+fn test_refunded_transaction_rejects_a_second_refund() {
+    let h = setup();
+    let id = register_default(&h);
+    h.client.refund_transaction(&id);
+
+    let res = h.client.try_refund_transaction(&id);
+    assert_eq!(res, Err(Ok(Error::InvalidStateTransition)));
+}
+
+#[test]
 fn test_refunded_transaction_rejects_callback_completion() {
     let h = setup();
     let id = register_default(&h);
