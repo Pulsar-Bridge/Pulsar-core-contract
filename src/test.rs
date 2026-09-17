@@ -1115,6 +1115,30 @@ fn test_propose_upgrade_wrong_schema_version_fails() {
 }
 
 #[test]
+fn test_execute_upgrade_emits_upgrade_event() {
+    use soroban_sdk::{testutils::Events as _, Event as _};
+
+    let h = setup();
+    let new_wasm_hash = h.env.deployer().upload_contract_wasm(SELF_WASM);
+    h.client.propose_upgrade(&new_wasm_hash, &1);
+    h.env
+        .ledger()
+        .with_mut(|li| li.sequence_number += crate::storage::UPGRADE_TIMELOCK_LEDGERS);
+
+    h.client.execute_upgrade();
+
+    let expected = crate::events::ContractUpgraded {
+        new_wasm_hash,
+        old_schema_version: 1,
+        new_schema_version: 2,
+    };
+    assert_eq!(
+        h.env.events().all(),
+        [expected.to_xdr(&h.env, &h.contract_id)]
+    );
+}
+
+#[test]
 fn test_execute_upgrade_fails_without_pending_upgrade() {
     let h = setup();
     let res = h.client.try_execute_upgrade();
