@@ -604,6 +604,18 @@ fn test_terminal_states_reject_further_transitions() {
 }
 
 #[test]
+fn test_refunded_transaction_rejects_fail() {
+    let h = setup();
+    let id = register_default(&h);
+    h.client.refund_transaction(&id);
+
+    let res = h
+        .client
+        .try_fail_transaction(&id, &String::from_str(&h.env, "too late"));
+    assert_eq!(res, Err(Ok(Error::InvalidStateTransition)));
+}
+
+#[test]
 fn test_refunded_transaction_rejects_confirm() {
     let h = setup();
     let id = register_default(&h);
