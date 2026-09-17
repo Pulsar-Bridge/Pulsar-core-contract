@@ -603,6 +603,19 @@ fn test_terminal_states_reject_further_transitions() {
     assert_eq!(res, Err(Ok(Error::InvalidStateTransition)));
 }
 
+#[test]
+fn test_completed_transaction_rejects_fail() {
+    let h = setup();
+    let id = register_default(&h);
+    h.client.confirm_transaction(&id);
+    h.client.register_callback(&id);
+
+    let res = h
+        .client
+        .try_fail_transaction(&id, &String::from_str(&h.env, "too late"));
+    assert_eq!(res, Err(Ok(Error::InvalidStateTransition)));
+}
+
 // --- idempotency ---
 
 #[test]
