@@ -239,6 +239,25 @@ fn test_register_transaction_rejects_oversized_transaction_id() {
 }
 
 #[test]
+fn test_register_transaction_rejects_oversized_sender() {
+    let h = setup();
+    let id = tx_id(&h.env, "tx-oversized-sender");
+    let sender = oversized_string(&h.env);
+    let recipient = Address::generate(&h.env);
+    let source_chain = String::from_str(&h.env, "ethereum");
+    let dest_chain = String::from_str(&h.env, "stellar");
+    let res = h.client.try_register_transaction(
+        &id,
+        &sender,
+        &recipient,
+        &1_000_i128,
+        &source_chain,
+        &dest_chain,
+    );
+    assert_eq!(res, Err(Ok(Error::InvalidInput)));
+}
+
+#[test]
 fn test_register_transaction_rejects_empty_transaction_id() {
     let h = setup();
     let id = String::from_str(&h.env, "");
