@@ -203,6 +203,24 @@ fn test_register_transaction_duplicate_id_fails() {
 }
 
 #[test]
+fn test_register_transaction_duplicate_id_does_not_alter_original_record() {
+    let h = setup();
+    let id = register_default(&h);
+    let original = h.client.get_transaction(&id);
+
+    let res = h.client.try_register_transaction(
+        &id,
+        &String::from_str(&h.env, "GDIFFERENTSENDER"),
+        &Address::generate(&h.env),
+        &9_999_i128,
+        &String::from_str(&h.env, "bitcoin"),
+        &String::from_str(&h.env, "ethereum"),
+    );
+    assert_eq!(res, Err(Ok(Error::TransactionAlreadyExists)));
+    assert_eq!(h.client.get_transaction(&id), original);
+}
+
+#[test]
 fn test_register_transaction_rejects_non_positive_amount() {
     let h = setup();
     let id = tx_id(&h.env, "tx-bad-amount");
