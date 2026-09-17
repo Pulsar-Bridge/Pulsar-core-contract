@@ -94,6 +94,16 @@ fn test_get_admin_before_initialize_fails() {
 }
 
 #[test]
+fn test_get_relay_signer_before_initialize_fails() {
+    let env = Env::default();
+    let contract_id = env.register(PulsarCoreContract, ());
+    let client = PulsarCoreContractClient::new(&env, &contract_id);
+
+    let res = client.try_get_relay_signer();
+    assert_eq!(res, Err(Ok(Error::NotInitialized)));
+}
+
+#[test]
 fn test_schema_version_before_initialize_fails() {
     // Every other instance-storage read errors with NotInitialized before
     // initialize() has run; schema_version() must match, not silently
