@@ -141,7 +141,8 @@ mod tests {
     use std::{format, vec};
 
     use super::{
-        validate_amount, validate_string_len, validate_strkey_ed25519_public_key, STRKEY_LEN,
+        crc16_xmodem, validate_amount, validate_string_len, validate_strkey_ed25519_public_key,
+        STRKEY_DECODED_LEN, STRKEY_LEN, STRKEY_VERSION_ED25519_PUBLIC_KEY,
     };
     use crate::types::MAX_STRING_LEN;
 
@@ -179,7 +180,51 @@ mod tests {
         assert!(validate_amount(1).is_ok());
     }
 
+    /// Reference base32 encoder (the inverse of `decode_base32`), used only
+    /// to construct known-valid strkeys for the round-trip property test
+    /// below. `STRKEY_DECODED_LEN` bytes is exactly `STRKEY_LEN * 5` bits,
+    /// so this never needs padding.
+    fn encode_base32(bytes: &[u8; STRKEY_DECODED_LEN]) -> std::string::String {
+        let mut bit_buffer: u64 = 0;
+        let mut bits_in_buffer: u32 = 0;
+        let mut out = std::string::String::new();
+        for &b in bytes {
+            bit_buffer = (bit_buffer << 8) | b as u64;
+            bits_in_buffer += 8;
+            while bits_in_buffer >= 5 {
+                bits_in_buffer -= 5;
+                let idx = ((bit_buffer >> bits_in_buffer) & 0x1F) as u8;
+                out.push(match idx {
+                    0..=25 => (b'A' + idx) as char,
+                    26..=31 => (b'2' + (idx - 26)) as char,
+                    _ => unreachable!(),
+                });
+            }
+        }
+        out
+    }
+
     proptest! {
+        #[test]
+        fn accepts_any_correctly_encoded_ed25519_strkey(pubkey in prop::array::uniform32(any::<u8>())) {
+            let mut payload = [0u8; STRKEY_DECODED_LEN - 2];
+            payload[0] = STRKEY_VERSION_ED25519_PUBLIC_KEY;
+            payload[1..].copy_from_slice(&pubkey);
+            let checksum = crc16_xmodem(&payload);
+
+            let mut full = [0u8; STRKEY_DECODED_LEN];
+            full[..STRKEY_DECODED_LEN - 2].copy_from_slice(&payload);
+            full[STRKEY_DECODED_LEN - 2..].copy_from_slice(&checksum.to_le_bytes());
+
+            let s = encode_base32(&full);
+            prop_assert_eq!(s.len(), STRKEY_LEN);
+
+            let env = Env::default();
+            prop_assert!(
+                validate_strkey_ed25519_public_key(&SorobanString::from_str(&env, &s)).is_ok()
+            );
+        }
+
         #[test]
         fn rejects_any_correct_length_strkey_with_an_invalid_alphabet_char(
             prefix in "[A-Z2-7]{0,55}",
