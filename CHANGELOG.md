@@ -17,7 +17,7 @@ event-schema change. Any entry there should correspond to a version note in
 - Admin entry points: `pause`/`unpause`, `propose_admin`/`accept_admin`
   (two-step admin transfer), `set_relay_signer`, `propose_upgrade`/
   `execute_upgrade` (schema-version-guarded, timelocked WASM hot-swap).
-- 95-test suite covering happy paths, auth failures (an explicit
+- 102-test suite covering happy paths, auth failures (an explicit
   auth-failure test for every relay-signer- and admin-gated entry point),
   invalid input, idempotency, state-machine guards, pause/upgrade, the
   two-step admin transfer, an EVENTS.md-conformance check, and the SEP-23
@@ -76,6 +76,12 @@ event-schema change. Any entry there should correspond to a version note in
   all still work while the contract is paused, per `THREAT_MODEL.md`'s F2
   mitigation — `pause()` only halts relay-signer actions, and this was
   previously asserted only in the ADRs/threat model prose, not in tests.
+- An exhaustive `proptest` property test for `validate_string_len` across
+  the full accept/reject length range (not just the two boundary points)
+  and for `validate_amount` across the entire `i128` range split at the
+  0/1 boundary, plus the remaining terminal-state self-transition gaps
+  (`Failed`/`Refunded` each rejecting a second call to the same terminal
+  entry point) and a direct `get_pending_admin()`-with-no-proposal test.
 
 ### Changed
 - Replaced the single-step `set_admin(new_admin)` with a two-step
