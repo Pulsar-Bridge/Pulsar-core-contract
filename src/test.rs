@@ -1398,6 +1398,24 @@ fn test_propose_upgrade_overwrites_pending_proposal_and_resets_timelock() {
 }
 
 #[test]
+fn test_get_pending_upgrade_clears_after_execute_upgrade() {
+    // Direct check that get_pending_upgrade() itself reports NoPendingUpgrade
+    // once execute_upgrade() has consumed the proposal -- previously only
+    // inferred indirectly via the replay-rejection test.
+    let h = setup();
+    let new_wasm_hash = h.env.deployer().upload_contract_wasm(SELF_WASM);
+    h.client.propose_upgrade(&new_wasm_hash, &1);
+    h.env
+        .ledger()
+        .with_mut(|li| li.sequence_number += crate::storage::UPGRADE_TIMELOCK_LEDGERS);
+
+    h.client.execute_upgrade();
+
+    let res = h.client.try_get_pending_upgrade();
+    assert_eq!(res, Err(Ok(Error::NoPendingUpgrade)));
+}
+
+#[test]
 fn test_execute_upgrade_after_timelock_bumps_schema_version_and_rejects_replay() {
     let h = setup();
     let new_wasm_hash = h.env.deployer().upload_contract_wasm(SELF_WASM);
