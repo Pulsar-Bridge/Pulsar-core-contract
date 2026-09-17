@@ -657,6 +657,33 @@ fn test_execute_upgrade_before_timelock_elapses_fails() {
 }
 
 #[test]
+fn test_propose_upgrade_overwrites_pending_proposal_and_resets_timelock() {
+    // docs/adr/0003-upgrade-timelock.md and admin.rs's own doc comment claim
+    // that calling propose_upgrade() again before executing overwrites any
+    // still-pending proposal and resets its timelock; nothing previously
+    // exercised that claim directly.
+    let h = setup();
+    let first_hash = BytesN::<32>::random(&h.env);
+    h.client.propose_upgrade(&first_hash, &1);
+
+    // Advance partway through the timelock, short of the earliest_ledger.
+    h.env
+        .ledger()
+        .with_mut(|li| li.sequence_number += crate::storage::UPGRADE_TIMELOCK_LEDGERS - 1);
+
+    let second_hash = BytesN::<32>::random(&h.env);
+    h.client.propose_upgrade(&second_hash, &1);
+
+    let pending = h.client.get_pending_upgrade();
+    assert_eq!(pending.new_wasm_hash, second_hash);
+    // The timelock reset relative to *this* proposal: executing now (one
+    // ledger before the first proposal's original deadline, but freshly
+    // proposed) must still fail.
+    let res = h.client.try_execute_upgrade();
+    assert_eq!(res, Err(Ok(Error::UpgradeTimelockNotElapsed)));
+}
+
+#[test]
 fn test_execute_upgrade_after_timelock_bumps_schema_version_and_rejects_replay() {
     let h = setup();
     let new_wasm_hash = h.env.deployer().upload_contract_wasm(SELF_WASM);
