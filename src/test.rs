@@ -1119,6 +1119,19 @@ fn test_accept_admin_fails_without_pending_admin() {
 }
 
 #[test]
+fn test_set_relay_signer_succeeds_while_paused() {
+    // THREAT_MODEL.md's F2 mitigation relies on set_relay_signer() being
+    // usable to revoke a compromised relay signer even while the contract
+    // is paused; require_not_paused() must never gate this admin action.
+    let h = setup();
+    h.client.pause();
+    let new_signer = Address::generate(&h.env);
+
+    h.client.set_relay_signer(&new_signer);
+    assert_eq!(h.client.get_relay_signer(), new_signer);
+}
+
+#[test]
 fn test_set_relay_signer_rotates_signer() {
     let h = setup();
     let new_signer = Address::generate(&h.env);
