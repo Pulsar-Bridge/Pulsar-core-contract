@@ -493,6 +493,20 @@ fn test_refund_transaction_fails_when_paused() {
     );
 }
 
+#[test]
+fn test_fail_transaction_rejects_empty_reason() {
+    let h = setup();
+    let id = register_default(&h);
+    let res = h
+        .client
+        .try_fail_transaction(&id, &String::from_str(&h.env, ""));
+    assert_eq!(res, Err(Ok(Error::InvalidInput)));
+    assert_eq!(
+        h.client.get_transaction(&id).status,
+        TransactionStatus::Pending
+    );
+}
+
 // --- state machine ---
 
 #[test]
