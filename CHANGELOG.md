@@ -48,6 +48,12 @@ event-schema change. Any entry there should correspond to a version note in
   `THREAT_MODEL.md`'s F3.
 
 ### Fixed
+- `schema_version()` returned a bare `u32` and silently fell back to the
+  current build's `SCHEMA_VERSION` constant via `unwrap_or` if the contract
+  had never been initialized, instead of erroring like every other
+  instance-storage read (`get_admin`, `get_relay_signer`). Both the entry
+  point and `storage::get_schema_version` now return `Result<u32, Error>`,
+  erroring `NotInitialized` in that case.
 - `rust-toolchain.toml` targeted `wasm32-unknown-unknown`, which current
   Rust (1.82+) enables reference-types/multi-value on by default for — both
   unsupported by the Soroban environment. Retargeted to `wasm32v1-none`,
