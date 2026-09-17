@@ -1014,6 +1014,20 @@ fn test_unpause_requires_admin_auth() {
 }
 
 #[test]
+fn test_propose_and_accept_admin_transfer_succeeds_while_paused() {
+    // Admin recovery (rotating admin to a fresh multisig, per DECISIONS.md)
+    // must remain available while the contract is paused, the same as
+    // set_relay_signer -- pause() only halts relay-signer actions.
+    let h = setup();
+    h.client.pause();
+    let new_admin = Address::generate(&h.env);
+
+    h.client.propose_admin(&new_admin);
+    h.client.accept_admin();
+    assert_eq!(h.client.get_admin(), new_admin);
+}
+
+#[test]
 fn test_propose_and_accept_admin_transfer() {
     let h = setup();
     let new_admin = Address::generate(&h.env);
