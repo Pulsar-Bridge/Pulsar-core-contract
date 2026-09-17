@@ -136,7 +136,8 @@ mod tests {
     //! future entry point comes to depend on it.
     use soroban_sdk::{Env, String as SorobanString};
 
-    use super::validate_strkey_ed25519_public_key;
+    use super::{validate_string_len, validate_strkey_ed25519_public_key};
+    use crate::types::MAX_STRING_LEN;
 
     // From stellar-strkey's tests/tests.rs::test_valid_public_keys /
     // test_invalid_public_keys.
@@ -145,6 +146,22 @@ mod tests {
     // VALID_2 with its version byte's low 3 bits corrupted (encoded
     // algorithm changes from 0/ed25519 to 7/invalid).
     const INVALID_VERSION: &str = "G47QYNF7SOWQ3GLR2BGMZEHXAVIRZA4KVWLTJJFC7MGXUA74P7UJVP2I";
+
+    #[test]
+    fn validate_string_len_accepts_exactly_max_length() {
+        let env = Env::default();
+        let buf = [b'a'; MAX_STRING_LEN as usize];
+        let s = core::str::from_utf8(&buf).unwrap();
+        assert!(validate_string_len(&SorobanString::from_str(&env, s)).is_ok());
+    }
+
+    #[test]
+    fn validate_string_len_rejects_over_max_length() {
+        let env = Env::default();
+        let buf = [b'a'; MAX_STRING_LEN as usize + 1];
+        let s = core::str::from_utf8(&buf).unwrap();
+        assert!(validate_string_len(&SorobanString::from_str(&env, s)).is_err());
+    }
 
     #[test]
     fn accepts_known_valid_strkeys() {
