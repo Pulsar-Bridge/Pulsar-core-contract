@@ -145,3 +145,22 @@ proposes) / `accept_admin()` (proposed address confirms via its own
 proves it can sign. Covered by `test_propose_and_accept_admin_transfer`,
 `test_accept_admin_requires_proposed_admin_auth`, and
 `test_accept_admin_fails_without_pending_admin`.
+
+### F9 — Unmaintained transitive dependency (`paste`)
+**Status:** accepted risk, monitored by CI.
+
+`cargo audit` (see CONTRIBUTING.md's "Dependency vulnerability scanning")
+flags `paste` v1.0.15 as unmaintained (RUSTSEC-2024-0436) — no CVE, just an
+archived-upstream advisory. It is not a direct dependency of this contract;
+`cargo tree -i paste` shows it pulled in transitively by `soroban-env-host`
+(via the `ark-*` BLS12-381 curve crates) and `wasmi_core`, both dependencies
+of `soroban-sdk` itself, not something this repo can drop or replace
+independently.
+**Mitigation:** `paste` is a proc-macro crate — it expands identifiers at
+compile time and contributes no code to the compiled `wasm32v1-none`
+artifact this contract actually deploys, so it carries no on-chain runtime
+exposure. The CI `audit` job surfaces this warning on every run (without
+failing the build, since it's a warning, not a vulnerability) so a future
+actual advisory affecting this or any other dependency won't go unnoticed.
+Resolving it requires an upstream `soroban-sdk`/`soroban-env-host` release
+that moves off `paste`, not a change in this repo.
