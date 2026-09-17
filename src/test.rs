@@ -713,6 +713,25 @@ fn test_full_lifecycle_pending_to_completed() {
 }
 
 #[test]
+fn test_created_at_is_stable_across_transitions_while_updated_at_advances() {
+    let h = setup();
+    let id = register_default(&h);
+    let created_at = h.client.get_transaction(&id).created_at;
+
+    h.env.ledger().with_mut(|li| li.timestamp += 100);
+    h.client.confirm_transaction(&id);
+    let after_confirm = h.client.get_transaction(&id);
+    assert_eq!(after_confirm.created_at, created_at);
+    assert_eq!(after_confirm.updated_at, created_at + 100);
+
+    h.env.ledger().with_mut(|li| li.timestamp += 100);
+    h.client.register_callback(&id);
+    let after_complete = h.client.get_transaction(&id);
+    assert_eq!(after_complete.created_at, created_at);
+    assert_eq!(after_complete.updated_at, created_at + 200);
+}
+
+#[test]
 fn test_cannot_complete_before_confirmed() {
     let h = setup();
     let id = register_default(&h);
