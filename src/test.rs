@@ -620,6 +620,17 @@ fn test_execute_upgrade_requires_admin_auth() {
 }
 
 #[test]
+fn test_propose_upgrade_wrong_schema_version_fails() {
+    let h = setup();
+    let new_wasm_hash = BytesN::<32>::random(&h.env);
+    let res = h.client.try_propose_upgrade(&new_wasm_hash, &2);
+    assert_eq!(res, Err(Ok(Error::SchemaVersionMismatch)));
+    // No proposal should have been recorded.
+    let pending = h.client.try_get_pending_upgrade();
+    assert_eq!(pending, Err(Ok(Error::NoPendingUpgrade)));
+}
+
+#[test]
 fn test_execute_upgrade_fails_without_pending_upgrade() {
     let h = setup();
     let res = h.client.try_execute_upgrade();
