@@ -17,7 +17,7 @@ event-schema change. Any entry there should correspond to a version note in
 - Admin entry points: `pause`/`unpause`, `propose_admin`/`accept_admin`
   (two-step admin transfer), `set_relay_signer`, `propose_upgrade`/
   `execute_upgrade` (schema-version-guarded, timelocked WASM hot-swap).
-- 102-test suite covering happy paths, auth failures (an explicit
+- 103-test suite covering happy paths, auth failures (an explicit
   auth-failure test for every relay-signer- and admin-gated entry point),
   invalid input, idempotency, state-machine guards, pause/upgrade, the
   two-step admin transfer, an EVENTS.md-conformance check, and the SEP-23
