@@ -6,6 +6,8 @@ description = "On-chain contract for Pulsar Bridge: tracks deposit transaction l
 license = "Apache-2.0"
 repository = "https://github.com/Pulsar-Bridge/Pulsar-core-contract"
 readme = "README.md"
+keywords = ["soroban", "stellar", "smart-contract", "bridge"]
+categories = ["cryptography::cryptocurrencies"]
 
 [lib]
 crate-type = ["cdylib", "rlib"]
