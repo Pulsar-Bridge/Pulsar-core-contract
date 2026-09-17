@@ -909,6 +909,15 @@ fn test_unpause_emits_pause_event() {
 }
 
 #[test]
+fn test_unpause_is_idempotent_when_not_paused() {
+    // unpause() likewise has no guard requiring the contract to be paused
+    // first; calling it on an already-unpaused contract must succeed.
+    let h = setup();
+    h.client.unpause();
+    assert!(!h.client.is_paused());
+}
+
+#[test]
 fn test_unpause_requires_admin_auth() {
     let h = setup();
     h.client.pause();
