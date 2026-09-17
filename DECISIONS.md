@@ -122,3 +122,19 @@ Any change to the `Transaction` struct's field set/types, or to the
 contract deployment — `execute_upgrade()`'s WASM hot-swap does not migrate
 existing persistent storage to a new layout. Flag this explicitly in any PR
 that touches `types.rs`'s `Transaction` or `StorageKey`.
+
+## Dependency vulnerabilities are scanned in CI, not just at review time
+
+A separate `audit` CI job (`rustsec/audit-check`) runs on every push/PR,
+independent of `make check`, plus `.github/dependabot.yml` for proactive
+`cargo`/`github-actions` update PRs.
+
+**Why:** this repo's own code being correct (`make check`) says nothing
+about whether its ~215 transitive dependencies are free of disclosed
+vulnerabilities — that can change without this repo's code changing at
+all. A separate job keeps that signal distinct from "this PR's code is
+wrong." See `docs/adr/0004-dependency-vulnerability-scanning.md`.
+
+**Where enforced:** `.github/workflows/ci.yml`'s `audit` job;
+`.github/dependabot.yml`. Findings are tracked in `THREAT_MODEL.md`
+with the same open/accepted-risk discipline as any other finding (see F9).
