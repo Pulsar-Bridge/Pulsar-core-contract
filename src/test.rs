@@ -74,6 +74,20 @@ fn test_initialize_twice_fails() {
     assert_eq!(res, Err(Ok(Error::AlreadyInitialized)));
 }
 
+#[test]
+fn test_schema_version_before_initialize_fails() {
+    // Every other instance-storage read errors with NotInitialized before
+    // initialize() has run; schema_version() must match, not silently
+    // report the current build's SCHEMA_VERSION constant as if the
+    // contract were live.
+    let env = Env::default();
+    let contract_id = env.register(PulsarCoreContract, ());
+    let client = PulsarCoreContractClient::new(&env, &contract_id);
+
+    let res = client.try_schema_version();
+    assert_eq!(res, Err(Ok(Error::NotInitialized)));
+}
+
 // --- register_transaction: happy path + validation + auth ---
 
 #[test]
