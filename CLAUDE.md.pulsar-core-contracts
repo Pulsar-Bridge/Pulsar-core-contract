@@ -35,7 +35,7 @@ and grep for how they currently consume it — don't assume, check.
 
 - All entry points, types, storage helpers, and 12 events are implemented and marked
   complete in the README's own status table.
-- 95 tests cover happy paths, an explicit auth-failure test for every relay-signer- and
+- 102 tests cover happy paths, an explicit auth-failure test for every relay-signer- and
   admin-gated entry point, a NotInitialized test for every state-mutating entry point's
   storage read before `initialize()` has run, invalid input (including exact-boundary
   cases for every free-form string field, not just one representative field),
