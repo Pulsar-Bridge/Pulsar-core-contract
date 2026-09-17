@@ -604,6 +604,17 @@ fn test_terminal_states_reject_further_transitions() {
 }
 
 #[test]
+fn test_completed_transaction_rejects_refund() {
+    let h = setup();
+    let id = register_default(&h);
+    h.client.confirm_transaction(&id);
+    h.client.register_callback(&id);
+
+    let res = h.client.try_refund_transaction(&id);
+    assert_eq!(res, Err(Ok(Error::InvalidStateTransition)));
+}
+
+#[test]
 fn test_completed_transaction_rejects_fail() {
     let h = setup();
     let id = register_default(&h);
