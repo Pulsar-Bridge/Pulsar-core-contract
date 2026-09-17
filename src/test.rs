@@ -880,6 +880,24 @@ fn test_pause_requires_admin_auth() {
 }
 
 #[test]
+fn test_unpause_emits_pause_event() {
+    use soroban_sdk::{testutils::Events as _, Event as _};
+
+    let h = setup();
+    h.client.pause();
+    h.client.unpause();
+
+    let expected = crate::events::PauseStateChanged {
+        by: h.admin.clone(),
+        paused: false,
+    };
+    assert_eq!(
+        h.env.events().all(),
+        [expected.to_xdr(&h.env, &h.contract_id)]
+    );
+}
+
+#[test]
 fn test_unpause_requires_admin_auth() {
     let h = setup();
     h.client.pause();
