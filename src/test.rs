@@ -925,6 +925,25 @@ fn test_propose_and_accept_admin_transfer() {
 }
 
 #[test]
+fn test_propose_admin_emits_admin_prop_event() {
+    use soroban_sdk::{testutils::Events as _, Event as _};
+
+    let h = setup();
+    let new_admin = Address::generate(&h.env);
+
+    h.client.propose_admin(&new_admin);
+
+    let expected = crate::events::AdminTransferProposed {
+        old_admin: h.admin.clone(),
+        proposed_admin: new_admin,
+    };
+    assert_eq!(
+        h.env.events().all(),
+        [expected.to_xdr(&h.env, &h.contract_id)]
+    );
+}
+
+#[test]
 fn test_propose_admin_requires_admin_auth() {
     let h = setup();
     let new_admin = Address::generate(&h.env);
