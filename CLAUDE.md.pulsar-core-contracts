@@ -47,7 +47,7 @@ and grep for how they currently consume it — don't assume, check.
   emits, not just that the call returned `Ok`), and (in `validation.rs`'s own
   `#[cfg(test)]` module) the SEP-23 strkey validator against `stellar-strkey`'s own test
   vectors plus direct boundary unit tests for `validate_string_len`/`validate_amount`.
-  Grow this suite as new entry points and edge cases land — don't treat 86 as a
+  Grow this suite as new entry points and edge cases land — don't treat 95 as a
   ceiling.
 - `EVENTS.md` is **locked** — topic names, payload field types/order, and emission order
   are a cross-repo public API once Phase 2/3 subscribe to it. Additive/backward-compatible
