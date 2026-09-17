@@ -855,6 +855,23 @@ fn test_pause_blocks_relay_actions_but_admin_can_unpause() {
 }
 
 #[test]
+fn test_pause_emits_pause_event() {
+    use soroban_sdk::{testutils::Events as _, Event as _};
+
+    let h = setup();
+    h.client.pause();
+
+    let expected = crate::events::PauseStateChanged {
+        by: h.admin.clone(),
+        paused: true,
+    };
+    assert_eq!(
+        h.env.events().all(),
+        [expected.to_xdr(&h.env, &h.contract_id)]
+    );
+}
+
+#[test]
 fn test_pause_requires_admin_auth() {
     let h = setup();
     h.env.set_auths(&[]);
