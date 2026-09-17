@@ -463,6 +463,27 @@ fn test_confirm_transaction_fails_when_paused() {
 }
 
 #[test]
+fn test_register_callback_emits_tx_comp_event() {
+    use soroban_sdk::{testutils::Events as _, Event as _};
+
+    let h = setup();
+    let id = register_default(&h);
+    h.client.confirm_transaction(&id);
+    let updated_at = h.env.ledger().timestamp();
+
+    h.client.register_callback(&id);
+
+    let expected = crate::events::TransactionCompleted {
+        transaction_id: id,
+        updated_at,
+    };
+    assert_eq!(
+        h.env.events().all(),
+        [expected.to_xdr(&h.env, &h.contract_id)]
+    );
+}
+
+#[test]
 fn test_register_callback_requires_relay_signer_auth() {
     let h = setup();
     let id = register_default(&h);
