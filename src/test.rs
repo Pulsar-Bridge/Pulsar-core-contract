@@ -1192,6 +1192,22 @@ const SELF_WASM: &[u8] =
     include_bytes!("../target/wasm32v1-none/release/pulsar_core_contract.wasm");
 
 #[test]
+fn test_execute_upgrade_succeeds_while_paused() {
+    // A paused contract is exactly the scenario where an admin might need
+    // to ship an emergency fix via upgrade; pause() must not block it.
+    let h = setup();
+    let new_wasm_hash = h.env.deployer().upload_contract_wasm(SELF_WASM);
+    h.client.propose_upgrade(&new_wasm_hash, &1);
+    h.env
+        .ledger()
+        .with_mut(|li| li.sequence_number += crate::storage::UPGRADE_TIMELOCK_LEDGERS);
+    h.client.pause();
+
+    h.client.execute_upgrade();
+    assert_eq!(h.client.schema_version(), 2);
+}
+
+#[test]
 fn test_propose_upgrade_requires_admin_auth() {
     let h = setup();
     let new_wasm_hash = BytesN::<32>::random(&h.env);
