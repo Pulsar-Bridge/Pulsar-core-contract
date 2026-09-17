@@ -1021,6 +1021,25 @@ fn test_set_relay_signer_rotates_signer() {
 }
 
 #[test]
+fn test_set_relay_signer_emits_relay_upd_event() {
+    use soroban_sdk::{testutils::Events as _, Event as _};
+
+    let h = setup();
+    let new_signer = Address::generate(&h.env);
+
+    h.client.set_relay_signer(&new_signer);
+
+    let expected = crate::events::RelaySignerUpdated {
+        old_relay_signer: h.relay_signer.clone(),
+        new_relay_signer: new_signer,
+    };
+    assert_eq!(
+        h.env.events().all(),
+        [expected.to_xdr(&h.env, &h.contract_id)]
+    );
+}
+
+#[test]
 fn test_set_relay_signer_requires_admin_auth() {
     let h = setup();
     let new_signer = Address::generate(&h.env);
