@@ -1124,6 +1124,20 @@ fn test_execute_upgrade_requires_admin_auth() {
 }
 
 #[test]
+fn test_get_pending_upgrade_reflects_proposed_values() {
+    let h = setup();
+    let new_wasm_hash = BytesN::<32>::random(&h.env);
+    let earliest_ledger = h.env.ledger().sequence() + crate::storage::UPGRADE_TIMELOCK_LEDGERS;
+
+    h.client.propose_upgrade(&new_wasm_hash, &1);
+
+    let pending = h.client.get_pending_upgrade();
+    assert_eq!(pending.new_wasm_hash, new_wasm_hash);
+    assert_eq!(pending.expected_schema_version, 1);
+    assert_eq!(pending.earliest_ledger, earliest_ledger);
+}
+
+#[test]
 fn test_propose_upgrade_wrong_schema_version_fails() {
     let h = setup();
     let new_wasm_hash = BytesN::<32>::random(&h.env);
