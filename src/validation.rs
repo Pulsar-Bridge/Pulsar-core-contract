@@ -134,8 +134,11 @@ mod tests {
     //! CRC16 implementation. Test it directly against vectors from
     //! `stellar-strkey`'s own test suite so it's known-correct before any
     //! future entry point comes to depend on it.
+    extern crate std;
+
     use proptest::prelude::*;
     use soroban_sdk::{Env, String as SorobanString};
+    use std::{format, vec};
 
     use super::{
         validate_amount, validate_string_len, validate_strkey_ed25519_public_key, STRKEY_LEN,
@@ -177,6 +180,26 @@ mod tests {
     }
 
     proptest! {
+        #[test]
+        fn rejects_any_correct_length_strkey_with_an_invalid_alphabet_char(
+            prefix in "[A-Z2-7]{0,55}",
+            bad_char in prop::sample::select(vec!['0', '1', '8', '9', 'a', '!', '_']),
+        ) {
+            // A correct-length (56) string containing even one byte outside
+            // the base32 alphabet (A-Z, 2-7) must always be rejected by
+            // decode_base32, regardless of where the bad byte falls or what
+            // the rest of the string looks like.
+            let suffix_len = STRKEY_LEN - prefix.len() - 1;
+            let suffix = "A".repeat(suffix_len);
+            let s = format!("{prefix}{bad_char}{suffix}");
+            prop_assert_eq!(s.len(), STRKEY_LEN);
+
+            let env = Env::default();
+            prop_assert!(
+                validate_strkey_ed25519_public_key(&SorobanString::from_str(&env, &s)).is_err()
+            );
+        }
+
         #[test]
         fn rejects_any_wrong_length_strkey(s in "[A-Z2-7]{0,120}") {
             // STRKEY_LEN is always exactly 56; any other length must be
