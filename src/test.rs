@@ -872,6 +872,17 @@ fn test_pause_emits_pause_event() {
 }
 
 #[test]
+fn test_pause_is_idempotent() {
+    // pause() has no guard against being called while already paused; two
+    // consecutive calls must both succeed and leave the contract paused,
+    // not error on the second call.
+    let h = setup();
+    h.client.pause();
+    h.client.pause();
+    assert!(h.client.is_paused());
+}
+
+#[test]
 fn test_pause_requires_admin_auth() {
     let h = setup();
     h.env.set_auths(&[]);
