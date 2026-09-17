@@ -91,6 +91,14 @@ fn test_schema_version_before_initialize_fails() {
 // --- register_transaction: happy path + validation + auth ---
 
 #[test]
+fn test_get_transaction_not_found() {
+    let h = setup();
+    let id = tx_id(&h.env, "does-not-exist");
+    let res = h.client.try_get_transaction(&id);
+    assert_eq!(res, Err(Ok(Error::TransactionNotFound)));
+}
+
+#[test]
 fn test_register_transaction_happy_path() {
     let h = setup();
     let id = register_default(&h);
