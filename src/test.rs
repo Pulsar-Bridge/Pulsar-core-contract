@@ -498,6 +498,28 @@ fn test_register_callback_requires_relay_signer_auth() {
 }
 
 #[test]
+fn test_fail_transaction_emits_tx_fail_event() {
+    use soroban_sdk::{testutils::Events as _, Event as _};
+
+    let h = setup();
+    let id = register_default(&h);
+    let reason = String::from_str(&h.env, "bad deposit");
+    let updated_at = h.env.ledger().timestamp();
+
+    h.client.fail_transaction(&id, &reason);
+
+    let expected = crate::events::TransactionFailed {
+        transaction_id: id,
+        reason,
+        updated_at,
+    };
+    assert_eq!(
+        h.env.events().all(),
+        [expected.to_xdr(&h.env, &h.contract_id)]
+    );
+}
+
+#[test]
 fn test_fail_transaction_requires_relay_signer_auth() {
     let h = setup();
     let id = register_default(&h);
