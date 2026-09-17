@@ -198,6 +198,18 @@ mod tests {
         assert!(validate_amount(1).is_ok());
     }
 
+    proptest! {
+        #[test]
+        fn validate_amount_rejects_any_non_positive_value(amount in i128::MIN..=0) {
+            prop_assert!(validate_amount(amount).is_err());
+        }
+
+        #[test]
+        fn validate_amount_accepts_any_positive_value(amount in 1i128..=i128::MAX) {
+            prop_assert!(validate_amount(amount).is_ok());
+        }
+    }
+
     /// Reference base32 encoder (the inverse of `decode_base32`), used only
     /// to construct known-valid strkeys for the round-trip property test
     /// below. `STRKEY_DECODED_LEN` bytes is exactly `STRKEY_LEN * 5` bits,
