@@ -90,7 +90,7 @@ and grep for how they currently consume it — don't assume, check.
 - Every new entry point needs: an explicit access-control decision (admin? relay_signer?
   public read-only?), input validation via `validation.rs`'s established patterns (SEP-23
   strkey CRC16 checks, string length caps), and tests covering both the happy path and
-  the auth-failure path, matching the existing 38-test style.
+  the auth-failure path, matching the existing test style.
 
 ---
 
